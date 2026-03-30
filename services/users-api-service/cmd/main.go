@@ -1,18 +1,20 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"net/http"
-	"os"
-	"context"
-	
-	observability "users-observability"
+    "context"
+    "fmt"
+    "log"
+    "net/http"
+    "os"
 
-	"users-api-service/config"
+    "users-api-service/config"
+    "users-api-service/repository"
+    "users-api-service/service"
 
-	"github.com/gin-gonic/gin"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+    observability "users-observability"
+
+    "github.com/gin-gonic/gin"
+    "go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 type UserResponse struct {
@@ -36,12 +38,14 @@ func main() {
 	shutdown := observability.InitProvider(ctx, "users-api-service")
 	defer func() { _ = shutdown(ctx) }()
 
-	// In-memory users store (temporary, for initial demo)
-	users := map[string]string{
+	seedUsers := map[string]string{
 		"chris": "11111111-1111-1111-1111-111111111111",
 		"lissu": "22222222-2222-2222-2222-222222222222",
 	}
 
+	repo := repository.NewInMemoryUserRepository(seedUsers)
+	svc := service.NewUserService(repo)
+	
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.Use(otelgin.Middleware("users-api-service"))
@@ -54,7 +58,11 @@ func main() {
 	r.GET(cfg.BasePath+"/:username", func(c *gin.Context) {
 		username := c.Param("username")
 
-		uuid, ok := users[username]
+		uuid, ok, err := svc.GetUUID(c.Request.Context(), username)
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error":"failed to fetch user uuid"})
+			return
+		}
 		if !ok {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":    "user not found",
