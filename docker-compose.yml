@@ -12,8 +12,6 @@ services:
     container_name: users-api-service
     depends_on:
       - mongo
-    env_file:
-      - .env
     environment:
       - CONFIG_PATH=/app/config/config.docker.yaml
     ports:
@@ -26,8 +24,6 @@ services:
     container_name: profile-service
     depends_on:
       - users-api-service
-    env_file:
-      - .env
     environment:
       - CONFIG_PATH=/app/config/config.docker.yaml
     ports:
@@ -40,8 +36,6 @@ services:
     container_name: mobile-api-service
     depends_on:
       - users-api-service
-    env_file:
-      - .env
     environment:
       - CONFIG_PATH=/app/config/config.docker.yaml
     ports:
