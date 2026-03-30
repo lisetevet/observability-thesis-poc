@@ -7,9 +7,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type MongoDB struct {
+	URI        string `yaml:"uri"`
+	Database   string `yaml:"database"`
+	Collection string `yaml:"collection"`
+}
+
 type Config struct {
 	Port     int    `yaml:"port"`
 	BasePath string `yaml:"base_path"`
+	MongoDB     MongoDB     `yaml:"mongodb"`
 }
 
 func Load(configPath string) (*Config, error) {

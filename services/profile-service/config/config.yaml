@@ -1,2 +1,7 @@
 port: 8080
 base_path: /api/v1
+
+mongodb:
+  uri: mongodb://localhost:27017
+  database: profiles-db
+  collection: profiles
