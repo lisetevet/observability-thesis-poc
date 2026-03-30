@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 
+	"profile-service/model"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -15,16 +17,8 @@ func NewMongoProfileRepository(coll *mongo.Collection) *MongoProfileRepository {
 	return &MongoProfileRepository{coll: coll}
 }
 
-type profileDoc struct {
-	UUID         string `bson:"uuid"`
-	Name         string `bson:"name"`
-	Surname      string `bson:"surname"`
-	Email        string `bson:"email"`
-	PersonalCode string `bson:"personal_code"`
-}
-
 func (r *MongoProfileRepository) GetByUUID(ctx context.Context, uuid string) (Profile, bool, error) {
-	var doc profileDoc
+	var doc model.Profile
 	err := r.coll.FindOne(ctx, bson.M{"uuid": uuid}).Decode(&doc)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {

@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 
+	"users-api-service/model"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -15,13 +17,8 @@ func NewMongoUserRepository(coll *mongo.Collection) *MongoUserRepository {
 	return &MongoUserRepository{coll: coll}
 }
 
-type userDoc struct {
-	Username string `bson:"username"`
-	UUID     string `bson:"uuid"`
-}
-
 func (r *MongoUserRepository) GetUUIDByUsername(ctx context.Context, username string) (string, bool, error) {
-	var doc userDoc
+	var doc model.User
 	err := r.coll.FindOne(ctx, bson.M{"username": username}).Decode(&doc)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {

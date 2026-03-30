@@ -1,18 +1,31 @@
 # Lõputöö PoC: mikroteenused + OpenTelemetry + New Relic
 
-See repositoorium sisaldab väikest mikroteenustel põhinevat tõenduskontseptsiooni (proof-of-concept), mida kasutatakse bakalaureusetöös, et demonstreerida otspunktist-lõpp-punktini jälgitavust (end-to-end observability) OpenTelemetry ja New Relicu abil.
+See repositoorium sisaldab mikroteenustel põhinevat tõenduskontseptsiooni (proof-of-concept), mille eesmärk on demonstreerida otspunktist-lõpp-punktini jälgitavust (end-to-end observability) OpenTelemetry (distributed tracing) ja New Relicu abil.
 
-## Teenused
+## Arhitektuur (high-level)
 
+- **mobile-api-service** (entrypoint / BFF)  
+  Orkestreerib päringu: kasutajanimi → UUID → profiil.
 - **users-api-service**  
-  Tagastab kasutaja UUID kasutajanime (username) põhjal.  
-  - `GET /health`  
-  - `GET /api/v1/users/:username`
+  Tagastab kasutaja UUID kasutajanime (username) alusel (MongoDB).
+- **profile-service**  
+  Tagastab profiili UUID alusel (MongoDB).
+- **MongoDB**  
+  Andmete püsivus. Teenused seedivad algandmed käivitamisel (upsert).
 
-- **mobile-api-service**  
-  Avalik sissepääsupunkt (API gateway / BFF), mis kutsub users-api-service’i ja tagastab vastuse.  
-  - `GET /health`  
-  - `GET /api/v1/profile/:username`
+## Endpointid
+
+**mobile-api-service (port 8082)**
+- `GET /health`
+- `GET /api/v1/profile/:username`
+
+**users-api-service (port 8081)**
+- `GET /health`
+- `GET /api/v1/users/:username`
+
+**profile-service (port 8080)**
+- `GET /health`
+- `GET /api/v1/profiles/:uuid`
 
 ## Eeldused
 
@@ -22,7 +35,7 @@ See repositoorium sisaldab väikest mikroteenustel põhinevat tõenduskontseptsi
 
 ## Seadistus
 
-Loo repositooriumi juurkausta `.env` fail (ära commiti seda). Malli saad kopeerida:
+Loo repositooriumi juurkausta `.env` fail (ära commiti seda). Mall:
 
 ```bash
 cp .env.example .env
