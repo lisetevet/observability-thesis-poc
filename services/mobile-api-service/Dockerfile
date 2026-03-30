@@ -4,6 +4,7 @@ WORKDIR /app/services/mobile-api-service
 
 COPY services/mobile-api-service/go.mod ./go.mod
 COPY services/mobile-api-service/go.sum ./go.sum
+COPY pkg /app/pkg
 
 RUN go mod download
 

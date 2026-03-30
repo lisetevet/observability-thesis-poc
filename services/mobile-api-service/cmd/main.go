@@ -11,6 +11,10 @@ import (
 	"mobile-api-service/config"
 
 	"github.com/gin-gonic/gin"
+	"context"
+	observability "users-observability"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 func main() {
@@ -24,10 +28,17 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
-	client := &http.Client{Timeout: 5 * time.Second}
+	ctx := context.Background()
+	shutdown := observability.InitProvider(ctx, "mobile-api-service")
+	defer func() { _ = shutdown(ctx) }()
 
+	client := &http.Client{
+		Timeout:   5 * time.Second,
+		Transport: otelhttp.NewTransport(http.DefaultTransport),
+	}
 	r := gin.New()
 	r.Use(gin.Recovery())
+	r.Use(otelgin.Middleware("mobile-api-service"))
 
 	r.GET("/health", func(c *gin.Context) {
 		c.String(http.StatusOK, "ok")

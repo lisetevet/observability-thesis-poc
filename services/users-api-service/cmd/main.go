@@ -5,10 +5,14 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"context"
+	
+	observability "users-observability"
 
 	"users-api-service/config"
 
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 type UserResponse struct {
@@ -28,6 +32,10 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
+	ctx := context.Background()
+	shutdown := observability.InitProvider(ctx, "users-api-service")
+	defer func() { _ = shutdown(ctx) }()
+
 	// In-memory users store (temporary, for initial demo)
 	users := map[string]string{
 		"chris": "11111111-1111-1111-1111-111111111111",
@@ -36,6 +44,7 @@ func main() {
 
 	r := gin.New()
 	r.Use(gin.Recovery())
+	r.Use(otelgin.Middleware("users-api-service"))
 
 	r.GET("/health", func(c *gin.Context) {
 		c.String(http.StatusOK, "ok")
