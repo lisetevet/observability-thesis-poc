@@ -11,10 +11,10 @@ import (
 	"profile-service/repository"
 	"profile-service/service"
 	"profile-service/controller"
+	"profile-service/router"
 
 	observability "users-observability"
 
-	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -82,16 +82,13 @@ func main() {
 	svc := service.NewProfileService(repo)
 	ctrl := controller.NewProfileController(svc)
 
-	r := gin.New()
-	r.Use(gin.Recovery())
-	r.Use(otelgin.Middleware("profile-service"))
-
-	r.GET("/health", ctrl.Health)
-	r.GET(cfg.BasePath+"/profiles/:uuid", ctrl.GetProfile)
+	rt := router.New()
+	rt.Engine().Use(otelgin.Middleware("profile-service"))
+	rt.Setup(ctrl, cfg.BasePath)
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	log.Printf("starting profile-service on %s", addr)
-	if err := r.Run(addr); err != nil {
+	if err := rt.Engine().Run(addr); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}
 }
