@@ -11,10 +11,10 @@ import (
 	"users-api-service/controller"
 	"users-api-service/repository"
 	"users-api-service/service"
+	"users-api-service/router"
 	
 	observability "users-observability"
 
-	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -75,16 +75,13 @@ func main() {
 	svc := service.NewUserService(repo)
 	ctrl := controller.NewUsersController(svc)
 
-	r := gin.New()
-	r.Use(gin.Recovery())
-	r.Use(otelgin.Middleware("users-api-service"))
-
-	r.GET("/health", ctrl.Health)
-	r.GET(cfg.BasePath+"/:username", ctrl.GetUserUUID)
+	rt := router.New()
+	rt.Engine().Use(otelgin.Middleware("users-api-service"))
+	rt.Setup(ctrl, cfg.BasePath)
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	log.Printf("starting users-api-service on %s", addr)
-	if err := r.Run(addr); err != nil {
+	if err := rt.Engine().Run(addr); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}
 }
