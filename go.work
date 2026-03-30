@@ -3,5 +3,6 @@ go 1.25.6
 use (
 	./pkg/observability
 	./services/mobile-api-service
+	./services/profile-service
 	./services/users-api-service
 )

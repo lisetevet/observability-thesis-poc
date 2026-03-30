@@ -8,10 +8,8 @@ import (
 )
 
 type Config struct {
-	Port            int    `yaml:"port"`
-	BasePath        string `yaml:"base_path"`
-	UsersServiceURL string `yaml:"users_service_url"`
-	ProfileServiceURL string `yaml:"profile_service_url"`
+	Port     int    `yaml:"port"`
+	BasePath string `yaml:"base_path"`
 }
 
 func Load(configPath string) (*Config, error) {

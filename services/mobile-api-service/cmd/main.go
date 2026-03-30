@@ -7,15 +7,29 @@ import (
 	"net/http"
 	"os"
 	"time"
+	"context"
+	"encoding/json"
 
 	"mobile-api-service/config"
 
 	"github.com/gin-gonic/gin"
-	"context"
 	observability "users-observability"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
+
+type UsersLookupResponse struct {
+	Username string `json:"username"`
+	UUID     string `json:"uuid"`
+}
+
+type ProfileResponse struct {
+	UUID         string `json:"uuid"`
+	Name         string `json:"name"`
+	Surname      string `json:"surname"`
+	Email        string `json:"email"`
+	PersonalCode string `json:"personal_code"`
+}
 
 func main() {
 	configPath := os.Getenv("CONFIG_PATH")
@@ -44,21 +58,47 @@ func main() {
 		c.String(http.StatusOK, "ok")
 	})
 
-	// GET /api/v1/profile/:username -> calls users-service and returns its response
 	r.GET(cfg.BasePath+"/profile/:username", func(c *gin.Context) {
-		username := c.Param("username")
-		url := fmt.Sprintf("%s/%s", cfg.UsersServiceURL, username)
+	username := c.Param("username")
 
-		resp, err := client.Get(url)
-		if err != nil {
-			c.JSON(http.StatusBadGateway, gin.H{"error": "users-service request failed"})
-			return
-		}
-		defer resp.Body.Close()
+	// 1) Call users-service to get UUID
+	usersURL := fmt.Sprintf("%s/%s", cfg.UsersServiceURL, username)
 
-		body, _ := io.ReadAll(resp.Body)
-		c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), body)
-	})
+	usersResp, err := client.Get(usersURL)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "users-service request failed"})
+		return
+	}
+	defer usersResp.Body.Close()
+
+	usersBody, _ := io.ReadAll(usersResp.Body)
+	if usersResp.StatusCode != http.StatusOK {
+		// Pass through errors (e.g., 404 user not found)
+		c.Data(usersResp.StatusCode, usersResp.Header.Get("Content-Type"), usersBody)
+		return
+	}
+
+	var lookup UsersLookupResponse
+	if err := json.Unmarshal(usersBody, &lookup); err != nil || lookup.UUID == "" {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "invalid users-service response"})
+		return
+	}
+
+	// 2) Call profile-service to get profile by UUID
+	profileURL := fmt.Sprintf("%s/%s", cfg.ProfileServiceURL, lookup.UUID)
+
+	profResp, err := client.Get(profileURL)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "profile-service request failed"})
+		return
+	}
+	defer profResp.Body.Close()
+
+	profBody, _ := io.ReadAll(profResp.Body)
+
+	// Pass through profile-service response (200 or 404 no profile found)
+	c.Data(profResp.StatusCode, profResp.Header.Get("Content-Type"), profBody)
+})
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	log.Printf("starting mobile-api-service on %s", addr)
