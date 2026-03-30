@@ -4,26 +4,18 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 
 	"profile-service/config"
 	"profile-service/repository"
 	"profile-service/service"
+	"profile-service/controller"
 
 	observability "users-observability"
 
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
-
-type ProfileResponse struct {
-	UUID         string `json:"uuid"`
-	Name         string `json:"name"`
-	Surname      string `json:"surname"`
-	Email        string `json:"email"`
-	PersonalCode string `json:"personal_code"`
-}
 
 func main() {
 	configPath := os.Getenv("CONFIG_PATH")
@@ -52,37 +44,14 @@ func main() {
 
 	repo := repository.NewInMemoryProfileRepository(seedProfiles)
 	svc := service.NewProfileService(repo)
+    ctrl := controller.NewProfileController(svc)
 
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.Use(otelgin.Middleware("profile-service"))
 
-	r.GET("/health", func(c *gin.Context) {
-		c.String(http.StatusOK, "ok")
-	})
-
-	r.GET(cfg.BasePath+"/profiles/:uuid", func(c *gin.Context) {
-		uuid := c.Param("uuid")
-		p, ok, err := svc.GetProfile(c.Request.Context(), uuid)
-		if err != nil {
-			c.JSON(http.StatusBadGateway, gin.H{"error": "repository error"})
-			return
-		}
-		if !ok {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "no profile found for user",
-				"uuid":  uuid,
-			})
-			return
-		}
-		c.JSON(http.StatusOK, ProfileResponse{
-			UUID:         p.UUID,
-			Name:         p.Name,
-			Surname:      p.Surname,
-			Email:        p.Email,
-			PersonalCode: p.PersonalCode,
-		})
-	})
+	r.GET("/health", ctrl.Health)
+	r.GET(cfg.BasePath+"/profiles/:uuid", ctrl.GetProfile)
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	log.Printf("starting profile-service on %s", addr)
