@@ -8,6 +8,9 @@ import (
 	"os"
 
 	"profile-service/config"
+	"profile-service/repository"
+	"profile-service/service"
+
 	observability "users-observability"
 
 	"github.com/gin-gonic/gin"
@@ -37,8 +40,7 @@ func main() {
 	shutdown := observability.InitProvider(ctx, "profile-service")
 	defer func() { _ = shutdown(ctx) }()
 
-	// In-memory profiles store (temporary)
-	profiles := map[string]ProfileResponse{
+	seedProfiles := map[string]repository.Profile{
 		"11111111-1111-1111-1111-111111111111": {
 			UUID:         "11111111-1111-1111-1111-111111111111",
 			Name:         "Chris",
@@ -47,6 +49,9 @@ func main() {
 			PersonalCode: "12345678901",
 		},
 	}
+
+	repo := repository.NewInMemoryProfileRepository(seedProfiles)
+	svc := service.NewProfileService(repo)
 
 	r := gin.New()
 	r.Use(gin.Recovery())
@@ -58,7 +63,11 @@ func main() {
 
 	r.GET(cfg.BasePath+"/profiles/:uuid", func(c *gin.Context) {
 		uuid := c.Param("uuid")
-		p, ok := profiles[uuid]
+		p, ok, err := svc.GetProfile(c.Request.Context(), uuid)
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error": "repository error"})
+			return
+		}
 		if !ok {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error": "no profile found for user",
@@ -66,7 +75,13 @@ func main() {
 			})
 			return
 		}
-		c.JSON(http.StatusOK, p)
+		c.JSON(http.StatusOK, ProfileResponse{
+			UUID:         p.UUID,
+			Name:         p.Name,
+			Surname:      p.Surname,
+			Email:        p.Email,
+			PersonalCode: p.PersonalCode,
+		})
 	})
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
