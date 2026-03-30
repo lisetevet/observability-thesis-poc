@@ -1,61 +1,39 @@
 package service
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
 	"net/http"
+
+	"mobile-api-service/pkg/profileclient"
+	"mobile-api-service/pkg/usersclient"
 )
 
-type UsersLookupResponse struct {
-	Username string `json:"username"`
-	UUID     string `json:"uuid"`
-}
-
 type Orchestrator struct {
-	Client            *http.Client
-	UsersServiceURL   string
-	ProfileServiceURL string
+	users   *usersclient.Client
+	profile *profileclient.Client
 }
 
-func NewOrchestrator(client *http.Client, usersURL, profileURL string) *Orchestrator {
+func NewOrchestrator(httpClient *http.Client, usersURL, profileURL string) *Orchestrator {
 	return &Orchestrator{
-		Client:            client,
-		UsersServiceURL:   usersURL,
-		ProfileServiceURL: profileURL,
+		users:   usersclient.New(httpClient, usersURL),
+		profile: profileclient.New(httpClient, profileURL),
 	}
 }
 
-// FetchProfileByUsername returns: statusCode, contentType, bodyBytes, error
 func (o *Orchestrator) FetchProfileByUsername(username string) (int, string, []byte, error) {
-	// 1) users lookup
-	usersURL := fmt.Sprintf("%s/%s", o.UsersServiceURL, username)
-
-	usersResp, err := o.Client.Get(usersURL)
+	// 1) get uuid from users-service
+	status, ct, body, uuid, err := o.users.GetUUIDByUsername(username)
 	if err != nil {
-		return 0, "", nil, fmt.Errorf("users-service request failed: %w", err)
+		return 0, "", nil, err
 	}
-	defer usersResp.Body.Close()
-
-	usersBody, _ := io.ReadAll(usersResp.Body)
-	if usersResp.StatusCode != http.StatusOK {
-		return usersResp.StatusCode, usersResp.Header.Get("Content-Type"), usersBody, nil
+	if status != http.StatusOK {
+		// pass-through users error (e.g., 404 user not found)
+		return status, ct, body, nil
 	}
 
-	var lookup UsersLookupResponse
-	if err := json.Unmarshal(usersBody, &lookup); err != nil || lookup.UUID == "" {
-		return http.StatusBadGateway, "application/json", []byte(`{"error":"invalid users-service response"}`), nil
-	}
-
-	// 2) profile lookup
-	profileURL := fmt.Sprintf("%s/%s", o.ProfileServiceURL, lookup.UUID)
-
-	profResp, err := o.Client.Get(profileURL)
+	// 2) get profile from profile-service
+	pStatus, pCT, pBody, err := o.profile.GetProfileByUUID(uuid)
 	if err != nil {
-		return 0, "", nil, fmt.Errorf("profile-service request failed: %w", err)
+		return 0, "", nil, err
 	}
-	defer profResp.Body.Close()
-
-	profBody, _ := io.ReadAll(profResp.Body)
-	return profResp.StatusCode, profResp.Header.Get("Content-Type"), profBody, nil
+	return pStatus, pCT, pBody, nil
 }
