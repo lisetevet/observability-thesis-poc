@@ -10,8 +10,9 @@ import (
 
 	"mobile-api-service/config"
 	"mobile-api-service/service"
+	"mobile-api-service/controller"
+	"mobile-api-service/router"
 
-	"github.com/gin-gonic/gin"
 	observability "users-observability"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -37,29 +38,15 @@ func main() {
 		Transport: otelhttp.NewTransport(http.DefaultTransport),
 	}
 	orch := service.NewOrchestrator(client, cfg.UsersServiceURL, cfg.ProfileServiceURL)
-	r := gin.New()
-	r.Use(gin.Recovery())
-	r.Use(otelgin.Middleware("mobile-api-service"))
-
-	r.GET("/health", func(c *gin.Context) {
-		c.String(http.StatusOK, "ok")
-	})
-
-	r.GET(cfg.BasePath+"/profile/:username", func(c *gin.Context) {
-		username := c.Param("username")
-
-		status, contentType, body, err := orch.FetchProfileByUsername(username)
-		if err != nil {
-			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
-			return
-		}
-
-		c.Data(status, contentType, body)
-	})
+	ctrl := controller.NewMobileController(orch)
+	
+	rt := router.New()
+	rt.Engine().Use(otelgin.Middleware("mobile-api-service"))
+	rt.Setup(ctrl, cfg.BasePath)
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	log.Printf("starting mobile-api-service on %s", addr)
-	if err := r.Run(addr); err != nil {
+	if err := rt.Engine().Run(addr); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}
 }
