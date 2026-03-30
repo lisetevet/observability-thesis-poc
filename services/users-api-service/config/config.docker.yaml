@@ -1,0 +1,8 @@
+port: 8081
+
+base_path: /api/v1/users
+
+mongodb:
+  uri: mongodb://mongo:27017
+  database: users-db
+  collection: users

@@ -19,11 +19,11 @@ services:
     ports:
       - "8081:8081"
 
-  users-bff-service:
+  profile-service:
     build:
       context: .
-      dockerfile: services/users-bff-service/Dockerfile
-    container_name: users-bff-service
+      dockerfile: services/profile-service/Dockerfile
+    container_name: profile-service
     depends_on:
       - users-api-service
     env_file:
@@ -33,11 +33,11 @@ services:
     ports:
       - "8080:8080"
 
-  profile-service:
+  mobile-api-service:
     build:
       context: .
-      dockerfile: services/profile-service/Dockerfile
-    container_name: profile-service
+      dockerfile: services/mobile-api-service/Dockerfile
+    container_name: mobile-api-service
     depends_on:
       - users-api-service
     env_file:
