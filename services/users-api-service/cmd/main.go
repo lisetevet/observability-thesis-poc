@@ -12,6 +12,7 @@ import (
 	"users-api-service/repository"
 	"users-api-service/service"
 	"users-api-service/router"
+	"users-api-service/middleware"
 	
 	observability "users-observability"
 
@@ -77,6 +78,7 @@ func main() {
 
 	rt := router.New()
 	rt.Engine().Use(otelgin.Middleware("users-api-service"))
+	rt.Engine().Use(middleware.TestHooks())
 	rt.Setup(ctrl, cfg.BasePath)
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
