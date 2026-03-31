@@ -19,19 +19,18 @@ func NewOrchestrator(httpClient *http.Client, usersURL, profileURL string) *Orch
 	}
 }
 
-func (o *Orchestrator) FetchProfileByUsername(username string) (int, string, []byte, error) {
-	// 1) get uuid from users-service
-	status, ct, body, uuid, err := o.users.GetUUIDByUsername(username)
+func (o *Orchestrator) FetchProfileByUsername(username, usersDelayMs, usersFail, profileDelayMs, profileFail string) (int, string, []byte, error) {
+	// 1) users-service lookup (with optional injection)
+	status, ct, body, uuid, err := o.users.GetUUIDByUsername(username, usersDelayMs, usersFail)
 	if err != nil {
 		return 0, "", nil, err
 	}
 	if status != http.StatusOK {
-		// pass-through users error (e.g., 404 user not found)
 		return status, ct, body, nil
 	}
 
-	// 2) get profile from profile-service
-	pStatus, pCT, pBody, err := o.profile.GetProfileByUUID(uuid)
+	// 2) profile-service lookup (with optional injection)
+	pStatus, pCT, pBody, err := o.profile.GetProfileByUUID(uuid, profileDelayMs, profileFail)
 	if err != nil {
 		return 0, "", nil, err
 	}

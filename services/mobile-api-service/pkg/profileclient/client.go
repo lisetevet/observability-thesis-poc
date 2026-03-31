@@ -16,8 +16,19 @@ func New(httpClient *http.Client, baseURL string) *Client {
 }
 
 // GetProfileByUUID returns: statusCode, contentType, bodyBytes
-func (c *Client) GetProfileByUUID(uuid string) (int, string, []byte, error) {
+func (c *Client) GetProfileByUUID(uuid, delayMs, fail string) (int, string, []byte, error) {
 	url := fmt.Sprintf("%s/%s", c.baseURL, uuid)
+	q := ""
+	if delayMs != "" {
+		q += "delayMs=" + delayMs
+	}
+	if fail == "true" {
+		if q != "" { q += "&" }
+		q += "fail=true"
+	}
+	if q != "" {
+		url += "?" + q
+	}
 
 	resp, err := c.httpClient.Get(url)
 	if err != nil {

@@ -23,7 +23,13 @@ func (c *MobileController) Health(ctx *gin.Context) {
 func (c *MobileController) GetProfile(ctx *gin.Context) {
 	username := ctx.Param("username")
 
-	status, contentType, body, err := c.orch.FetchProfileByUsername(username)
+	// pass-through injection params for experiments
+	usersDelayMs := ctx.Query("usersDelayMs")
+	usersFail := ctx.Query("usersFail")
+	profileDelayMs := ctx.Query("profileDelayMs")
+	profileFail := ctx.Query("profileFail")
+
+	status, contentType, body, err := c.orch.FetchProfileByUsername(username, usersDelayMs, usersFail, profileDelayMs, profileFail)
 	if err != nil {
 		ctx.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return

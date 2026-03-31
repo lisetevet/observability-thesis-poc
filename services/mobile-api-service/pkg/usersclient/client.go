@@ -22,8 +22,19 @@ type LookupResponse struct {
 }
 
 // GetUUIDByUsername returns: statusCode, contentType, bodyBytes, uuid(if status 200)
-func (c *Client) GetUUIDByUsername(username string) (int, string, []byte, string, error) {
+func (c *Client) GetUUIDByUsername(username, delayMs, fail string) (int, string, []byte, string, error) {
 	url := fmt.Sprintf("%s/%s", c.baseURL, username)
+	q := ""
+	if delayMs != "" {
+		q += "delayMs=" + delayMs
+	}
+	if fail == "true" {
+		if q != "" { q += "&" }
+		q += "fail=true"
+	}
+	if q != "" {
+		url += "?" + q
+	}
 
 	resp, err := c.httpClient.Get(url)
 	if err != nil {
