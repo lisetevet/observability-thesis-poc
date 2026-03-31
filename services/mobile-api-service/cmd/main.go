@@ -12,6 +12,7 @@ import (
 	"mobile-api-service/service"
 	"mobile-api-service/controller"
 	"mobile-api-service/router"
+	"mobile-api-service/middleware"
 
 	observability "users-observability"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
@@ -42,6 +43,7 @@ func main() {
 	
 	rt := router.New()
 	rt.Engine().Use(otelgin.Middleware("mobile-api-service"))
+	rt.Engine().Use(middleware.TestHooks())
 	rt.Setup(ctrl, cfg.BasePath)
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
