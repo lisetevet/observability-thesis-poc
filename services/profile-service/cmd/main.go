@@ -12,6 +12,7 @@ import (
 	"profile-service/service"
 	"profile-service/controller"
 	"profile-service/router"
+	"profile-service/middleware"
 
 	observability "users-observability"
 
@@ -84,6 +85,7 @@ func main() {
 
 	rt := router.New()
 	rt.Engine().Use(otelgin.Middleware("profile-service"))
+	rt.Engine().Use(middleware.TestHooks())
 	rt.Setup(ctrl, cfg.BasePath)
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
