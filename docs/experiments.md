@@ -30,6 +30,6 @@ curl -i "http://localhost:8080/api/v1/profiles/11111111-1111-1111-1111-111111111
 curl -i "http://localhost:8082/api/v1/profile/chris?fail=true"
 ```
 ## Kinnitus New Relicus (mida vaadata)
-Service map / dependencies: mobile-api-service -> users-api-service -> profile-service
-Traces / distributed tracing: näha, kus viivitus või viga tekkis (span duration / error)
-MongoDB span’id users- ja profile-teenustes DB päringute ajal
+- Service map / dependencies: mobile-api-service -> users-api-service -> profile-service
+- Traces / distributed tracing: näha, kus viivitus või viga tekkis (span duration / error)
+- MongoDB span’id users- ja profile-teenustes DB päringute ajal

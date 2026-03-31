@@ -39,3 +39,8 @@ Loo repositooriumi juurkausta `.env` fail (ära commiti seda). Mall:
 
 ```bash
 cp .env.example .env
+```
+
+## Katsed
+
+Vaata `docs/experiments.md` (reprodutseeritavad curl-stsenaariumid viivituse ja vea süstimiseks).
