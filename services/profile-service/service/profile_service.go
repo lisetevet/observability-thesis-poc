@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"fmt"
 
 	"profile-service/repository"
 	"profile-service/pkg/usersclient"
@@ -32,15 +33,46 @@ func (s *ProfileService) GetProfile(ctx context.Context, uuid string) (model.Pro
 	return s.repo.GetByUUID(ctx, uuid)
 }
 
-func (s *ProfileService) GetProfileByUsername(ctx context.Context, username string) (model.Profile, bool, error) {
-	// 1) resolve uuid via users-service
-	uuid, ok, err := s.usersCl.GetUUIDByUsername(ctx, username)
-	if err != nil || !ok {
+func (s *ProfileService) GetProfileByUsername(ctx context.Context, username, usersDelayMs, usersFail string) (model.Profile, bool, error) {
+	tr := otel.Tracer("profile-service")
+	ctx, span := tr.Start(ctx, "ProfileService.GetProfileByUsername")
+	span.SetAttributes(attribute.String("app.username", username))
+	defer span.End()
+
+	// 1) cache lookup
+	p, ok, err := s.repo.GetByUsername(ctx, username)
+	if err != nil {
 		return model.Profile{}, false, err
 	}
+	if ok {
+		span.SetAttributes(attribute.Bool("cache.hit", true))
+		return p, true, nil
+	}
+	span.SetAttributes(attribute.Bool("cache.hit", false))
 
-	// 2) fetch profile by uuid from profile DB
-	return s.repo.GetByUUID(ctx, uuid)
+	// 2) fetch from users-api-service
+	status, ct, body, err := s.usersCl.GetProfileByUsername(ctx, username, usersDelayMs, usersFail)
+	if err != nil {
+		return model.Profile{}, false, err
+	}
+	if status == http.StatusNotFound {
+		return model.Profile{}, false, nil
+	}
+	if status != http.StatusOK {
+		return model.Profile{}, false, fmt.Errorf("users-service returned %d (%s): %s", status, ct, string(body))
+	}
+
+	var fromUsers model.Profile
+	if err := json.Unmarshal(body, &fromUsers); err != nil {
+		return model.Profile{}, false, fmt.Errorf("invalid users profile response: %w", err)
+	}
+
+	// 3) upsert into mongo
+	if err := s.repo.UpsertProfile(ctx, fromUsers); err != nil {
+		return fromUsers, true, nil
+	}
+
+	return fromUsers, true, nil
 }
 
 func (s *ProfileService) GetProfileByUsernameDBFirst(ctx context.Context, username, usersDelayMs, usersFail string) (model.Profile, bool, error) {
