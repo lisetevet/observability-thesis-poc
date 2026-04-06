@@ -12,4 +12,5 @@ type Profile struct {
 
 type ProfileRepository interface {
 	GetByUUID(ctx context.Context, uuid string) (Profile, bool, error)
+	UpsertProfile(ctx context.Context, p Profile) error
 }
