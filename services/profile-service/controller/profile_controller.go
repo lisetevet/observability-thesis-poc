@@ -52,7 +52,7 @@ func (c *ProfileController) GetProfileByUsername(ctx *gin.Context) {
 	usersDelayMs := ctx.Query("usersDelayMs")
 	usersFail := ctx.Query("usersFail")
 
-	p, ok, err := c.svc.GetProfileByUsernameDBFirst(ctx.Request.Context(), username, usersDelayMs, usersFail)
+	p, ok, err := c.svc.GetProfileByUsername(ctx.Request.Context(), username, usersDelayMs, usersFail)
 	if err != nil {
 		ctx.JSON(http.StatusBadGateway, gin.H{"error": "profile-service failed"})
 		return

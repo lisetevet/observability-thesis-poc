@@ -13,6 +13,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 type ProfileService struct {
@@ -39,9 +40,11 @@ func (s *ProfileService) GetProfileByUsername(ctx context.Context, username, use
 	span.SetAttributes(attribute.String("app.username", username))
 	defer span.End()
 
-	// 1) cache lookup
+	// 1) cache lookup (profile DB)
 	p, ok, err := s.repo.GetByUsername(ctx, username)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return model.Profile{}, false, err
 	}
 	if ok {
@@ -50,63 +53,51 @@ func (s *ProfileService) GetProfileByUsername(ctx context.Context, username, use
 	}
 	span.SetAttributes(attribute.Bool("cache.hit", false))
 
-	// 2) fetch from users-api-service
+	// 2) fallback: fetch profile seed from users-service
 	status, ct, body, err := s.usersCl.GetProfileByUsername(ctx, username, usersDelayMs, usersFail)
+	span.SetAttributes(attribute.Int("users.status_code", status))
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return model.Profile{}, false, err
 	}
+
 	if status == http.StatusNotFound {
 		return model.Profile{}, false, nil
 	}
 	if status != http.StatusOK {
-		return model.Profile{}, false, fmt.Errorf("users-service returned %d (%s): %s", status, ct, string(body))
+		e := fmt.Errorf("users-service returned %d (%s): %s", status, ct, string(body))
+		span.RecordError(e)
+		span.SetStatus(codes.Error, e.Error())
+		return model.Profile{}, false, e
 	}
 
 	var fromUsers model.Profile
 	if err := json.Unmarshal(body, &fromUsers); err != nil {
-		return model.Profile{}, false, fmt.Errorf("invalid users profile response: %w", err)
-	}
-
-	// 3) upsert into mongo
-	if err := s.repo.UpsertProfile(ctx, fromUsers); err != nil {
-		return fromUsers, true, nil
-	}
-
-	return fromUsers, true, nil
-}
-
-func (s *ProfileService) GetProfileByUsernameDBFirst(ctx context.Context, username, usersDelayMs, usersFail string) (model.Profile, bool, error) {
-	// 1) try profile DB by username
-	p, ok, err := s.repo.GetByUsername(ctx, username)
-	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return model.Profile{}, false, err
 	}
-	if ok {
-		return p, true, nil
+	// kindluse mõttes
+	if fromUsers.Username == "" {
+		fromUsers.Username = username
 	}
 
-	// 2) fallback: fetch profile seed from users-service
-	status, _, body, err := s.usersCl.GetProfileByUsername(ctx, username, usersDelayMs, usersFail)
-	if err != nil {
-		return model.Profile{}, false, err
-	}
-	if status != http.StatusOK {
-		// users returns 404 etc -> treat as "not found"
-		return model.Profile{}, false, nil
-	}
-
-	var fromUsers model.Profile
-	if err := json.Unmarshal(body, &fromUsers); err != nil {
-		return model.Profile{}, false, err
-	}
-	// ensure username is set (users response might not include it)
-	fromUsers.Username = username
-
-	// 3) async cache write-back
+	// 3) async cache write-back (goroutine)
+	ctx2 := context.WithoutCancel(ctx)
 	go func(p model.Profile) {
-		bg := context.Background()
-		if err := s.repo.UpsertProfile(bg, p); err != nil {
+		tr2 := otel.Tracer("profile-service")
+		_, span2 := tr2.Start(ctx2, "ProfileService.AsyncUpsert")
+		span2.SetAttributes(
+			attribute.String("app.username", p.Username),
+			attribute.String("app.uuid", p.UUID),
+		)
+		defer span2.End()
+
+		if err := s.repo.UpsertProfile(ctx2, p); err != nil {
 			log.Printf("async UpsertProfile failed (username=%s uuid=%s): %v", p.Username, p.UUID, err)
+			span2.RecordError(err)
+			span2.SetStatus(codes.Error, err.Error())
 		}
 	}(fromUsers)
 
