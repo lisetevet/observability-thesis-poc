@@ -42,3 +42,23 @@ func (r *MongoUserRepository) GetUUIDByUsername(ctx context.Context, username st
 	log.Printf("mongo GetUUIDByUsername failed (username=%s): %v", username, err)
 	return "", false, err
 }
+
+func (r *MongoUserRepository) GetUserByUsername(ctx context.Context, username string) (model.User, bool, error) {
+	tr := otel.Tracer("users-api-service")
+	ctx, span := tr.Start(ctx, "MongoUserRepository.GetUserByUsername")
+	span.SetAttributes(attribute.String("db.collection", "users"))
+	span.SetAttributes(attribute.String("app.username", username))
+	defer span.End()
+
+	var doc model.User
+	err := r.coll.FindOne(ctx, bson.M{"username": username}).Decode(&doc)
+	if err == nil {
+		return doc, true, nil
+	}
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		log.Printf("No documents found.")
+		return model.User{}, false, nil
+	}
+	log.Printf("mongo GetUserByUsername failed (username=%s): %v", username, err)
+	return model.User{}, false, err
+}

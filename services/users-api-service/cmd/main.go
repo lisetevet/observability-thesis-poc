@@ -54,17 +54,43 @@ func main() {
 	db := client.Database(cfg.MongoDB.Database)
 	coll := db.Collection(cfg.MongoDB.Collection)
 
-	// Seed users (upsert so it is safe to run multiple times)
-	seedUsers := map[string]string{
-		"chris": "11111111-1111-1111-1111-111111111111",
-		"lissu": "22222222-2222-2222-2222-222222222222",
+	type seedUser struct {
+		UUID         string
+		Name         string
+		Surname      string
+		Email        string
+		PersonalCode string
 	}
 
-	for username, uuid := range seedUsers {
+	seedUsers := map[string]seedUser{
+		"chris": {
+			UUID:         "11111111-1111-1111-1111-111111111111",
+			Name:         "Chris",
+			Surname:      "Example",
+			Email:        "chris@example.com",
+			PersonalCode: "12345678901",
+		},
+		"lissu": {
+			UUID:         "22222222-2222-2222-2222-222222222222",
+			Name:         "Lissu",
+			Surname:      "Example",
+			Email:        "lissu@example.com",
+			PersonalCode: "10987654321",
+		},
+	}
+
+	for username, u := range seedUsers {
 		_, err := coll.UpdateOne(
 			ctx,
 			bson.M{"username": username},
-			bson.M{"$set": bson.M{"username": username, "uuid": uuid}},
+			bson.M{"$set": bson.M{
+				"username":       username,
+				"uuid":           u.UUID,
+				"name":           u.Name,
+				"surname":        u.Surname,
+				"email":          u.Email,
+				"personal_code":  u.PersonalCode,
+			}},
 			options.Update().SetUpsert(true),
 		)
 		if err != nil {

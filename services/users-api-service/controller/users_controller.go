@@ -41,3 +41,28 @@ func (c *UsersController) GetUserUUID(ctx *gin.Context) {
 		"uuid":     uuid,
 	})
 }
+
+func (c *UsersController) GetUserProfileSeed(ctx *gin.Context) {
+	username := ctx.Param("username")
+
+	u, ok, err := c.svc.GetUser(ctx.Request.Context(), username)
+	if err != nil {
+		ctx.JSON(http.StatusBadGateway, gin.H{"error": "repository error"})
+		return
+	}
+	if !ok {
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error":    "user not found",
+			"username": username,
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"uuid":          u.UUID,
+		"name":          u.Name,
+		"surname":       u.Surname,
+		"email":         u.Email,
+		"personal_code": u.PersonalCode,
+	})
+}
