@@ -98,6 +98,7 @@ func main() {
 		ctx,
 		bson.M{"uuid": seed.UUID},
 		bson.M{"$set": bson.M{
+			"username":      seed.Username,
 			"uuid":          seed.UUID,
 			"name":          seed.Name,
 			"surname":       seed.Surname,
