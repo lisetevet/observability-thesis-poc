@@ -17,6 +17,7 @@ type Config struct {
 	Port     int    `yaml:"port"`
 	BasePath string `yaml:"base_path"`
 	MongoDB     MongoDB     `yaml:"mongodb"`
+	UsersServiceURL string `yaml:"users_service_url"`
 }
 
 func Load(configPath string) (*Config, error) {

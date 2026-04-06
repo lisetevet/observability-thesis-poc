@@ -1,5 +1,6 @@
 port: 8080
 base_path: /api/v1
+users_service_url: http://users-api-service:8081/api/v1/users
 
 mongodb:
   uri: mongodb://mongo:27017

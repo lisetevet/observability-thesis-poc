@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"time"
+	"net/http"
+	"net"
 
 	"profile-service/config"
 	"profile-service/repository"
@@ -13,6 +15,7 @@ import (
 	"profile-service/controller"
 	"profile-service/router"
 	"profile-service/middleware"
+	"profile-service/pkg/usersclient"
 
 	observability "users-observability"
 
@@ -21,6 +24,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 func main() {
@@ -37,6 +41,32 @@ func main() {
 	ctx := context.Background()
 	shutdown := observability.InitProvider(ctx, "profile-service")
 	defer func() { _ = shutdown(ctx) }()
+
+	baseTransport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   3 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   10,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+
+	httpClient := &http.Client{
+		Timeout: 5 * time.Second,
+		Transport: otelhttp.NewTransport(
+			baseTransport,
+			otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string {
+				return fmt.Sprintf("HTTP %s %s", r.Method, r.URL.Path)
+			}),
+		),
+	}
+	usersCl := usersclient.New(httpClient, cfg.UsersServiceURL)
+	_ = usersCl
 
 	// MongoDB client with OTEL monitoring
 	mongoCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
