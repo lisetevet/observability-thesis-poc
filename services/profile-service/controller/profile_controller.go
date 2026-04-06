@@ -48,13 +48,16 @@ func (c *ProfileController) GetProfile(ctx *gin.Context) {
 func (c *ProfileController) GetProfileByUsername(ctx *gin.Context) {
 	username := ctx.Param("username")
 
-	p, ok, err := c.svc.GetProfileByUsername(ctx.Request.Context(), username)
+	// allow experiment pass-through to users-service from profile-service
+	usersDelayMs := ctx.Query("usersDelayMs")
+	usersFail := ctx.Query("usersFail")
+
+	p, ok, err := c.svc.GetProfileByUsernameDBFirst(ctx.Request.Context(), username, usersDelayMs, usersFail)
 	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{"error": "users-service request failed"})
+		ctx.JSON(http.StatusBadGateway, gin.H{"error": "profile-service failed"})
 		return
 	}
 	if !ok {
-		// user not found OR profile not found
 		ctx.JSON(http.StatusNotFound, gin.H{
 			"error":    "no profile found for user",
 			"username": username,
@@ -62,11 +65,5 @@ func (c *ProfileController) GetProfileByUsername(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"uuid":          p.UUID,
-		"name":          p.Name,
-		"surname":       p.Surname,
-		"email":         p.Email,
-		"personal_code": p.PersonalCode,
-	})
+	ctx.JSON(http.StatusOK, p)
 }
