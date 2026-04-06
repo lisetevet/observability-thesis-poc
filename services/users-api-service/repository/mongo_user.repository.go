@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"errors"
+	"log"
 
 	"users-api-service/model"
 
@@ -20,11 +22,16 @@ func NewMongoUserRepository(coll *mongo.Collection) *MongoUserRepository {
 func (r *MongoUserRepository) GetUUIDByUsername(ctx context.Context, username string) (string, bool, error) {
 	var doc model.User
 	err := r.coll.FindOne(ctx, bson.M{"username": username}).Decode(&doc)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return "", false, nil
-		}
-		return "", false, err
+
+	if err == nil {
+		return doc.UUID, true, nil
 	}
-	return doc.UUID, true, nil
+
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		log.Printf("No documents found.")
+		return "", false, nil
+	}
+
+	log.Printf("mongo GetUUIDByUsername failed (username=%s): %v", username, err)
+	return "", false, err
 }
