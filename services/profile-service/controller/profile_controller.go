@@ -44,3 +44,29 @@ func (c *ProfileController) GetProfile(ctx *gin.Context) {
 		"personal_code": p.PersonalCode,
 	})
 }
+
+func (c *ProfileController) GetProfileByUsername(ctx *gin.Context) {
+	username := ctx.Param("username")
+
+	p, ok, err := c.svc.GetProfileByUsername(ctx.Request.Context(), username)
+	if err != nil {
+		ctx.JSON(http.StatusBadGateway, gin.H{"error": "users-service request failed"})
+		return
+	}
+	if !ok {
+		// user not found OR profile not found
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error":    "no profile found for user",
+			"username": username,
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"uuid":          p.UUID,
+		"name":          p.Name,
+		"surname":       p.Surname,
+		"email":         p.Email,
+		"personal_code": p.PersonalCode,
+	})
+}

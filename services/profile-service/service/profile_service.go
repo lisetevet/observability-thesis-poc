@@ -4,17 +4,19 @@ import (
 	"context"
 
 	"profile-service/repository"
+	"profile-service/pkg/usersclient"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 )
 
 type ProfileService struct {
-	repo repository.ProfileRepository
+	repo    repository.ProfileRepository
+	usersCl *usersclient.Client
 }
 
-func NewProfileService(repo repository.ProfileRepository) *ProfileService {
-	return &ProfileService{repo: repo}
+func NewProfileService(repo repository.ProfileRepository, usersCl *usersclient.Client) *ProfileService {
+	return &ProfileService{repo: repo, usersCl: usersCl}
 }
 
 func (s *ProfileService) GetProfile(ctx context.Context, uuid string) (repository.Profile, bool, error) {
@@ -23,5 +25,16 @@ func (s *ProfileService) GetProfile(ctx context.Context, uuid string) (repositor
 	span.SetAttributes(attribute.String("app.uuid", uuid))
 	defer span.End()
 
+	return s.repo.GetByUUID(ctx, uuid)
+}
+
+func (s *ProfileService) GetProfileByUsername(ctx context.Context, username string) (repository.Profile, bool, error) {
+	// 1) resolve uuid via users-service
+	uuid, ok, err := s.usersCl.GetUUIDByUsername(ctx, username)
+	if err != nil || !ok {
+		return repository.Profile{}, false, err
+	}
+
+	// 2) fetch profile by uuid from profile DB
 	return s.repo.GetByUUID(ctx, uuid)
 }

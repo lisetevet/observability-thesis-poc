@@ -66,7 +66,6 @@ func main() {
 		),
 	}
 	usersCl := usersclient.New(httpClient, cfg.UsersServiceURL)
-	_ = usersCl
 
 	// MongoDB client with OTEL monitoring
 	mongoCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -110,7 +109,7 @@ func main() {
 	}
 
 	repo := repository.NewMongoProfileRepository(coll)
-	svc := service.NewProfileService(repo)
+	svc := service.NewProfileService(repo, usersCl)
 	ctrl := controller.NewProfileController(svc)
 
 	rt := router.New()
