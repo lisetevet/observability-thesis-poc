@@ -9,6 +9,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type MongoProfileRepository struct {
@@ -20,6 +22,11 @@ func NewMongoProfileRepository(coll *mongo.Collection) *MongoProfileRepository {
 }
 
 func (r *MongoProfileRepository) GetByUUID(ctx context.Context, uuid string) (Profile, bool, error) {
+    tr := otel.Tracer("profile-service")
+    ctx, span := tr.Start(ctx, "MongoProfileRepository.GetByUUID")
+    span.SetAttributes(attribute.String("app.uuid", uuid))
+    defer span.End()
+
     var doc model.Profile
     err := r.coll.FindOne(ctx, bson.M{"uuid": uuid}).Decode(&doc)
 
