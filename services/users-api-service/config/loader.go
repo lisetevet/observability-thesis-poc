@@ -13,10 +13,6 @@ type MongoDB struct {
 	Collection string `yaml:"collection"`
 }
 
-type ExternalAPI struct {
-	URL string `yaml:"url"`
-}
-
 type Config struct {
 	Port        int         `yaml:"port"`
 	BasePath    string      `yaml:"base_path"`
