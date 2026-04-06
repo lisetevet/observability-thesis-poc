@@ -22,7 +22,7 @@ func NewMongoProfileRepository(coll *mongo.Collection) *MongoProfileRepository {
 	return &MongoProfileRepository{coll: coll}
 }
 
-func (r *MongoProfileRepository) GetByUUID(ctx context.Context, uuid string) (Profile, bool, error) {
+func (r *MongoProfileRepository) GetByUUID(ctx context.Context, uuid string) (model.Profile, bool, error) {
     tr := otel.Tracer("profile-service")
     ctx, span := tr.Start(ctx, "MongoProfileRepository.GetByUUID")
     span.SetAttributes(attribute.String("app.uuid", uuid))
@@ -32,25 +32,19 @@ func (r *MongoProfileRepository) GetByUUID(ctx context.Context, uuid string) (Pr
     err := r.coll.FindOne(ctx, bson.M{"uuid": uuid}).Decode(&doc)
 
     if err == nil {
-        return Profile{
-            UUID:         doc.UUID,
-            Name:         doc.Name,
-            Surname:      doc.Surname,
-            Email:        doc.Email,
-            PersonalCode: doc.PersonalCode,
-        }, true, nil
+        return doc, true, nil
     }
 
     if errors.Is(err, mongo.ErrNoDocuments) {
-		log.Printf("No documents found.")
-        return Profile{}, false, nil
+        log.Printf("no profile found (uuid=%s)", uuid)
+        return model.Profile{}, false, nil
     }
 
     log.Printf("mongo GetByUUID failed (uuid=%s): %v", uuid, err)
-    return Profile{}, false, err
+    return model.Profile{}, false, err
 }
 
-func (r *MongoProfileRepository) UpsertProfile(ctx context.Context, p Profile) error {
+func (r *MongoProfileRepository) UpsertProfile(ctx context.Context, p model.Profile) error {
 	tr := otel.Tracer("profile-service")
 	ctx, span := tr.Start(ctx, "MongoProfileRepository.UpsertProfile")
 	span.SetAttributes(attribute.String("db.collection", "profiles"))
@@ -61,6 +55,7 @@ func (r *MongoProfileRepository) UpsertProfile(ctx context.Context, p Profile) e
 		ctx,
 		bson.M{"uuid": p.UUID},
 		bson.M{"$set": bson.M{
+			"username":      p.Username,
 			"uuid":          p.UUID,
 			"name":          p.Name,
 			"surname":       p.Surname,
@@ -74,4 +69,23 @@ func (r *MongoProfileRepository) UpsertProfile(ctx context.Context, p Profile) e
 		return err
 	}
 	return nil
+}
+
+func (r *MongoProfileRepository) GetByUsername(ctx context.Context, username string) (model.Profile, bool, error) {
+	tr := otel.Tracer("profile-service")
+	ctx, span := tr.Start(ctx, "MongoProfileRepository.GetByUsername")
+	span.SetAttributes(attribute.String("app.username", username))
+	defer span.End()
+
+	var doc model.Profile
+	err := r.coll.FindOne(ctx, bson.M{"username": username}).Decode(&doc)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			log.Printf("profile not found (username=%s)", username)
+			return model.Profile{}, false, nil
+		}
+		log.Printf("mongo GetByUsername failed (username=%s): %v", username, err)
+		return model.Profile{}, false, err
+	}
+	return doc, true, nil
 }

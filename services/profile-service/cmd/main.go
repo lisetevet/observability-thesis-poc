@@ -16,6 +16,7 @@ import (
 	"profile-service/router"
 	"profile-service/middleware"
 	"profile-service/pkg/usersclient"
+	"profile-service/model"
 
 	observability "users-observability"
 
@@ -84,7 +85,8 @@ func main() {
 	coll := db.Collection(cfg.MongoDB.Collection)
 
 	// Seed profiles (upsert)
-	seed := repository.Profile{
+	seed := model.Profile{
+		Username:     "chris",
 		UUID:         "11111111-1111-1111-1111-111111111111",
 		Name:         "Chris",
 		Surname:      "Example",

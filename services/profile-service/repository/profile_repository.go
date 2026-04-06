@@ -1,16 +1,13 @@
 package repository
 
-import "context"
+import (
+	"context"
 
-type Profile struct {
-	UUID         string
-	Name         string
-	Surname      string
-	Email        string
-	PersonalCode string
-}
+	"profile-service/model"
+)
 
 type ProfileRepository interface {
-	GetByUUID(ctx context.Context, uuid string) (Profile, bool, error)
-	UpsertProfile(ctx context.Context, p Profile) error
+	GetByUUID(ctx context.Context, uuid string) (model.Profile, bool, error)
+	GetByUsername(ctx context.Context, username string) (model.Profile, bool, error)
+	UpsertProfile(ctx context.Context, p model.Profile) error
 }
