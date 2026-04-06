@@ -11,6 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 type MongoUserRepository struct {
@@ -31,14 +32,17 @@ func (r *MongoUserRepository) GetUUIDByUsername(ctx context.Context, username st
 	err := r.coll.FindOne(ctx, bson.M{"username": username}).Decode(&doc)
 
 	if err == nil {
+		span.SetAttributes(attribute.Bool("db.found", true))
 		return doc.UUID, true, nil
 	}
 
 	if errors.Is(err, mongo.ErrNoDocuments) {
-		log.Printf("No documents found.")
+		span.SetAttributes(attribute.Bool("db.found", false))
 		return "", false, nil
 	}
 
+	span.RecordError(err)
+	span.SetStatus(codes.Error, "mongo find failed")
 	log.Printf("mongo GetUUIDByUsername failed (username=%s): %v", username, err)
 	return "", false, err
 }
@@ -46,19 +50,24 @@ func (r *MongoUserRepository) GetUUIDByUsername(ctx context.Context, username st
 func (r *MongoUserRepository) GetUserByUsername(ctx context.Context, username string) (model.User, bool, error) {
 	tr := otel.Tracer("users-api-service")
 	ctx, span := tr.Start(ctx, "MongoUserRepository.GetUserByUsername")
-	span.SetAttributes(attribute.String("db.collection", "users"))
 	span.SetAttributes(attribute.String("app.username", username))
 	defer span.End()
 
 	var doc model.User
 	err := r.coll.FindOne(ctx, bson.M{"username": username}).Decode(&doc)
+
 	if err == nil {
+		span.SetAttributes(attribute.Bool("db.found", true))
 		return doc, true, nil
 	}
+
 	if errors.Is(err, mongo.ErrNoDocuments) {
-		log.Printf("No documents found.")
+		span.SetAttributes(attribute.Bool("db.found", false))
 		return model.User{}, false, nil
 	}
+
+	span.RecordError(err)
+	span.SetStatus(codes.Error, "mongo find failed")
 	log.Printf("mongo GetUserByUsername failed (username=%s): %v", username, err)
 	return model.User{}, false, err
 }
