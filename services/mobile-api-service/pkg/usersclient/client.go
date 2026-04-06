@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"context"
 )
 
 type Client struct {
@@ -22,7 +23,7 @@ type LookupResponse struct {
 }
 
 // GetUUIDByUsername returns: statusCode, contentType, bodyBytes, uuid(if status 200)
-func (c *Client) GetUUIDByUsername(username, delayMs, fail string) (int, string, []byte, string, error) {
+func (c *Client) GetUUIDByUsername(ctx context.Context, username, delayMs, fail string) (int, string, []byte, string, error) {
 	url := fmt.Sprintf("%s/%s", c.baseURL, username)
 	q := ""
 	if delayMs != "" {
@@ -36,7 +37,12 @@ func (c *Client) GetUUIDByUsername(username, delayMs, fail string) (int, string,
 		url += "?" + q
 	}
 
-	resp, err := c.httpClient.Get(url)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return 0, "", nil, "", err
+	}
+
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return 0, "", nil, "", fmt.Errorf("users-service request failed: %w", err)
 	}

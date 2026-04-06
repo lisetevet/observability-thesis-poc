@@ -29,7 +29,12 @@ func (c *MobileController) GetProfile(ctx *gin.Context) {
 	profileDelayMs := ctx.Query("profileDelayMs")
 	profileFail := ctx.Query("profileFail")
 
-	status, contentType, body, err := c.orch.FetchProfileByUsername(username, usersDelayMs, usersFail, profileDelayMs, profileFail)
+	status, contentType, body, err := c.orch.FetchProfileByUsername(
+    ctx.Request.Context(),
+    username,
+    usersDelayMs, usersFail,
+    profileDelayMs, profileFail,
+    )
 	if err != nil {
 		ctx.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return

@@ -2,6 +2,7 @@ package service
 
 import (
 	"net/http"
+	"context"
 
 	"mobile-api-service/pkg/profileclient"
 	"mobile-api-service/pkg/usersclient"
@@ -19,9 +20,9 @@ func NewOrchestrator(httpClient *http.Client, usersURL, profileURL string) *Orch
 	}
 }
 
-func (o *Orchestrator) FetchProfileByUsername(username, usersDelayMs, usersFail, profileDelayMs, profileFail string) (int, string, []byte, error) {
+func (o *Orchestrator) FetchProfileByUsername(ctx context.Context, username, usersDelayMs, usersFail, profileDelayMs, profileFail string) (int, string, []byte, error) {
 	// 1) users-service lookup (with optional injection)
-	status, ct, body, uuid, err := o.users.GetUUIDByUsername(username, usersDelayMs, usersFail)
+	status, ct, body, uuid, err := o.users.GetUUIDByUsername(ctx, username, usersDelayMs, usersFail)
 	if err != nil {
 		return 0, "", nil, err
 	}
@@ -30,7 +31,7 @@ func (o *Orchestrator) FetchProfileByUsername(username, usersDelayMs, usersFail,
 	}
 
 	// 2) profile-service lookup (with optional injection)
-	pStatus, pCT, pBody, err := o.profile.GetProfileByUUID(uuid, profileDelayMs, profileFail)
+	pStatus, pCT, pBody, err := o.profile.GetProfileByUUID(ctx, uuid, profileDelayMs, profileFail)
 	if err != nil {
 		return 0, "", nil, err
 	}

@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 	"context"
+	"net"
 
 	"mobile-api-service/config"
 	"mobile-api-service/service"
@@ -34,9 +35,28 @@ func main() {
 	shutdown := observability.InitProvider(ctx, "mobile-api-service")
 	defer func() { _ = shutdown(ctx) }()
 
+	baseTransport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   3 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   10,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+	
 	client := &http.Client{
-		Timeout:   5 * time.Second,
-		Transport: otelhttp.NewTransport(http.DefaultTransport),
+		Timeout: 5 * time.Second,
+		Transport: otelhttp.NewTransport(
+			baseTransport,
+			otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string {
+				return fmt.Sprintf("HTTP %s %s", r.Method, r.URL.Path)
+			}),
+		),
 	}
 	orch := service.NewOrchestrator(client, cfg.UsersServiceURL, cfg.ProfileServiceURL)
 	ctrl := controller.NewMobileController(orch)
