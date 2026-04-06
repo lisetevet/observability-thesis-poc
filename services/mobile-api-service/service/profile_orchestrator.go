@@ -13,11 +13,8 @@ type Orchestrator struct {
 	profile *profileclient.Client
 }
 
-func NewOrchestrator(httpClient *http.Client, usersURL, profileURL string) *Orchestrator {
-	return &Orchestrator{
-		users:   usersclient.New(httpClient, usersURL),
-		profile: profileclient.New(httpClient, profileURL),
-	}
+func NewOrchestrator(users *usersclient.Client, profile *profileclient.Client) *Orchestrator {
+	return &Orchestrator{users: users, profile: profile}
 }
 
 func (o *Orchestrator) FetchProfileByUsername(ctx context.Context, username, usersDelayMs, usersFail, profileDelayMs, profileFail string) (int, string, []byte, error) {

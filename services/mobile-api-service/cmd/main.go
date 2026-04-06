@@ -14,6 +14,8 @@ import (
 	"mobile-api-service/controller"
 	"mobile-api-service/router"
 	"mobile-api-service/middleware"
+	"mobile-api-service/pkg/profileclient"
+	"mobile-api-service/pkg/usersclient"
 
 	observability "users-observability"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
@@ -58,7 +60,10 @@ func main() {
 			}),
 		),
 	}
-	orch := service.NewOrchestrator(client, cfg.UsersServiceURL, cfg.ProfileServiceURL)
+	usersCl := usersclient.New(client, cfg.UsersServiceURL)
+	profileCl := profileclient.New(client, cfg.ProfileServiceURL)
+
+	orch := service.NewOrchestrator(usersCl, profileCl)
 	ctrl := controller.NewMobileController(orch)
 	
 	rt := router.New()
