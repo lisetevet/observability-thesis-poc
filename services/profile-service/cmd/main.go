@@ -15,7 +15,7 @@ import (
 	"profile-service/controller"
 	"profile-service/router"
 	"profile-service/middleware"
-	"profile-service/pkg/usersclient"
+	"profile-service/client/usersclient"
 	"profile-service/model"
 
 	observability "users-observability"

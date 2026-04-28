@@ -4,8 +4,8 @@ import (
 	"context"
 	"log"
 
+	"profile-service/client/usersclient"
 	"profile-service/model"
-	"profile-service/pkg/usersclient"
 	"profile-service/repository"
 
 	"go.opentelemetry.io/otel"
