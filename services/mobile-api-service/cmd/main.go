@@ -12,7 +12,7 @@ import (
 	"mobile-api-service/config"
 	"mobile-api-service/controller"
 	"mobile-api-service/middleware"
-	"mobile-api-service/pkg/profileclient"
+	"mobile-api-service/client/profileclient"
 	"mobile-api-service/router"
 	"mobile-api-service/service"
 

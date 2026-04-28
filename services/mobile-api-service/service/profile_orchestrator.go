@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"mobile-api-service/pkg/profileclient"
+	"mobile-api-service/client/profileclient"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
