@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 
-	"users-api-service/model"
 	"users-api-service/repository"
 
 	"go.opentelemetry.io/otel"
@@ -34,20 +33,4 @@ func (s *UserService) GetUUID(ctx context.Context, username string) (string, boo
 		return "", false, err
 	}
 	return uuid, ok, nil
-}
-
-func (s *UserService) GetUser(ctx context.Context, username string) (model.User, bool, error) {
-	tr := otel.Tracer("users-api-service")
-	ctx, span := tr.Start(ctx, "UserService.GetUser")
-	span.SetAttributes(attribute.String("app.username", username))
-	defer span.End()
-
-	u, ok, err := s.repo.GetUserByUsername(ctx, username)
-	if err != nil {
-		log.Printf("failed to get user from repository (username=%s): %v", username, err)
-		span.RecordError(err)
-		span.SetStatus(codes.Error, "repository error")
-		return model.User{}, false, err
-	}
-	return u, ok, nil
 }
