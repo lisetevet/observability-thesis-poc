@@ -71,6 +71,8 @@ func (r *MongoProfileRepository) UpsertProfile(ctx context.Context, p model.Prof
 	)
 	if err != nil {
 		log.Printf("mongo UpsertProfile failed (uuid=%s): %v", p.UUID, err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "mongo upsert failed")
 		return err
 	}
 	return nil
