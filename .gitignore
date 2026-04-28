@@ -1,5 +1,6 @@
 # Local environment overrides (not committed)
 .env
+results/
 
 # Go build artifacts
 bin/
