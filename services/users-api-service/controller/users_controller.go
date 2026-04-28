@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"log"
 	"net/http"
 
 	"users-api-service/model"
@@ -34,12 +35,15 @@ func (c *UsersController) GetUserUUID(ctx *gin.Context) {
 
 	uuid, ok, err := c.svc.GetUUID(reqCtx, username)
 	if err != nil {
+		log.Printf("GetUUID failed (username=%s): %v", username, err)
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "service error")
 		ctx.JSON(http.StatusBadGateway, model.ErrorResponse{Error: "repository error", Username: username})
 		return
 	}
 	if !ok {
+		log.Printf("user not found (username=%s)", username)
+		span.SetStatus(codes.Error, "user not found")
 		ctx.JSON(http.StatusNotFound, model.ErrorResponse{Error: "user not found", Username: username})
 		return
 	}
@@ -60,12 +64,15 @@ func (c *UsersController) GetUserProfileSeed(ctx *gin.Context) {
 
 	u, ok, err := c.svc.GetUser(reqCtx, username)
 	if err != nil {
+		log.Printf("GetUser failed (username=%s): %v", username, err)
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "service error")
 		ctx.JSON(http.StatusBadGateway, model.ErrorResponse{Error: "repository error", Username: username})
 		return
 	}
 	if !ok {
+		log.Printf("user not found (username=%s)", username)
+		span.SetStatus(codes.Error, "user not found")
 		ctx.JSON(http.StatusNotFound, model.ErrorResponse{Error: "user not found", Username: username})
 		return
 	}

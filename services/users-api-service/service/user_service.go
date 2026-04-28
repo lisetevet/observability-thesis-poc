@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log"
 
 	"users-api-service/model"
 	"users-api-service/repository"
@@ -27,6 +28,7 @@ func (s *UserService) GetUUID(ctx context.Context, username string) (string, boo
 
 	uuid, ok, err := s.repo.GetUUIDByUsername(ctx, username)
 	if err != nil {
+		log.Printf("failed to get uuid from repository (username=%s): %v", username, err)
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "repository error")
 		return "", false, err
@@ -42,6 +44,7 @@ func (s *UserService) GetUser(ctx context.Context, username string) (model.User,
 
 	u, ok, err := s.repo.GetUserByUsername(ctx, username)
 	if err != nil {
+		log.Printf("failed to get user from repository (username=%s): %v", username, err)
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "repository error")
 		return model.User{}, false, err
