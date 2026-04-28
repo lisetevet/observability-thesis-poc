@@ -2,6 +2,9 @@
 .env
 results/
 
+.DS_Store
+**/.DS_Store
+
 # Go build artifacts
 bin/
 *.exe
