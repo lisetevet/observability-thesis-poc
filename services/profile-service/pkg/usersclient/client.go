@@ -24,11 +24,25 @@ type lookupResponse struct {
 	UUID     string `json:"uuid"`
 }
 
-// GetUUIDByUsername calls users-api-service and returns uuid (or ok=false if 404).
-func (c *Client) GetUUIDByUsername(ctx context.Context, username string) (uuid string, ok bool, err error) {
-	url := fmt.Sprintf("%s/%s", c.baseURL, username)
+func (c *Client) GetUUIDByUsername(ctx context.Context, username, delayMs, fail string) (uuid string, ok bool, err error) {
+	base := strings.TrimRight(c.baseURL, "/")
+	rawURL := fmt.Sprintf("%s/%s", base, username)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "", false, fmt.Errorf("invalid users-service url: %w", err)
+	}
+
+	q := u.Query()
+	if delayMs != "" {
+		q.Set("delayMs", delayMs)
+	}
+	if fail == "true" {
+		q.Set("fail", "true")
+	}
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return "", false, err
 	}
@@ -39,19 +53,26 @@ func (c *Client) GetUUIDByUsername(ctx context.Context, username string) (uuid s
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to read users-service response body: %w", err)
+	}
 
 	if resp.StatusCode == http.StatusNotFound {
 		return "", false, nil
 	}
+
 	if resp.StatusCode != http.StatusOK {
-		// pass through error details (useful in logs)
 		return "", false, fmt.Errorf("users-service returned %d: %s", resp.StatusCode, string(body))
 	}
 
 	var lr lookupResponse
-	if err := json.Unmarshal(body, &lr); err != nil || lr.UUID == "" {
+	if err := json.Unmarshal(body, &lr); err != nil {
 		return "", false, fmt.Errorf("invalid users-service response: %s", string(body))
+	}
+
+	if lr.UUID == "" {
+		return "", false, fmt.Errorf("users-service response did not contain uuid: %s", string(body))
 	}
 
 	return lr.UUID, true, nil
