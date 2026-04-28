@@ -12,6 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 type MongoProfileRepository struct {
@@ -23,25 +24,29 @@ func NewMongoProfileRepository(coll *mongo.Collection) *MongoProfileRepository {
 }
 
 func (r *MongoProfileRepository) GetByUUID(ctx context.Context, uuid string) (model.Profile, bool, error) {
-    tr := otel.Tracer("profile-service")
-    ctx, span := tr.Start(ctx, "MongoProfileRepository.GetByUUID")
-    span.SetAttributes(attribute.String("app.uuid", uuid))
-    defer span.End()
+	tr := otel.Tracer("profile-service")
+	ctx, span := tr.Start(ctx, "MongoProfileRepository.GetByUUID")
+	span.SetAttributes(attribute.String("app.uuid", uuid))
+	defer span.End()
 
-    var doc model.Profile
-    err := r.coll.FindOne(ctx, bson.M{"uuid": uuid}).Decode(&doc)
+	var doc model.Profile
+	err := r.coll.FindOne(ctx, bson.M{"uuid": uuid}).Decode(&doc)
 
-    if err == nil {
-        return doc, true, nil
-    }
+	if err == nil {
+		span.SetAttributes(attribute.Bool("db.found", true))
+		return doc, true, nil
+	}
 
-    if errors.Is(err, mongo.ErrNoDocuments) {
-        log.Printf("no profile found (uuid=%s)", uuid)
-        return model.Profile{}, false, nil
-    }
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		log.Printf("no profile found (uuid=%s)", uuid)
+		span.SetAttributes(attribute.Bool("db.found", false))
+		return model.Profile{}, false, nil
+	}
 
-    log.Printf("mongo GetByUUID failed (uuid=%s): %v", uuid, err)
-    return model.Profile{}, false, err
+	log.Printf("mongo GetByUUID failed (uuid=%s): %v", uuid, err)
+	span.RecordError(err)
+	span.SetStatus(codes.Error, "mongo find failed")
+	return model.Profile{}, false, err
 }
 
 func (r *MongoProfileRepository) UpsertProfile(ctx context.Context, p model.Profile) error {
@@ -82,10 +87,16 @@ func (r *MongoProfileRepository) GetByUsername(ctx context.Context, username str
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			log.Printf("profile not found (username=%s)", username)
+			span.SetAttributes(attribute.Bool("db.found", false))
 			return model.Profile{}, false, nil
 		}
+
 		log.Printf("mongo GetByUsername failed (username=%s): %v", username, err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "mongo find failed")
 		return model.Profile{}, false, err
 	}
+
+	span.SetAttributes(attribute.Bool("db.found", true))
 	return doc, true, nil
 }
