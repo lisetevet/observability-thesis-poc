@@ -1,23 +1,23 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"time"
-	"context"
-	"net"
 
 	"mobile-api-service/config"
-	"mobile-api-service/service"
 	"mobile-api-service/controller"
-	"mobile-api-service/router"
 	"mobile-api-service/middleware"
 	"mobile-api-service/pkg/profileclient"
-	"mobile-api-service/pkg/usersclient"
+	"mobile-api-service/router"
+	"mobile-api-service/service"
 
 	observability "users-observability"
+
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
@@ -50,7 +50,7 @@ func main() {
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 	}
-	
+
 	client := &http.Client{
 		Timeout: 5 * time.Second,
 		Transport: otelhttp.NewTransport(
@@ -60,12 +60,11 @@ func main() {
 			}),
 		),
 	}
-	usersCl := usersclient.New(client, cfg.UsersServiceURL)
 	profileCl := profileclient.New(client, cfg.ProfileServiceURL)
 
-	orch := service.NewOrchestrator(usersCl, profileCl)
+	orch := service.NewOrchestrator(profileCl)
 	ctrl := controller.NewMobileController(orch)
-	
+
 	rt := router.New()
 	rt.Engine().Use(otelgin.Middleware("mobile-api-service"))
 	rt.Engine().Use(middleware.TestHooks())

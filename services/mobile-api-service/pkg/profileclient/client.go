@@ -1,10 +1,12 @@
 package profileclient
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
-	"context"
+	"net/url"
+	"strings"
 )
 
 type Client struct {
@@ -16,22 +18,31 @@ func New(httpClient *http.Client, baseURL string) *Client {
 	return &Client{httpClient: httpClient, baseURL: baseURL}
 }
 
-// GetProfileByUUID returns: statusCode, contentType, bodyBytes
-func (c *Client) GetProfileByUUID(ctx context.Context, uuid, delayMs, fail string) (int, string, []byte, error) {
-	url := fmt.Sprintf("%s/%s", c.baseURL, uuid)
-	q := ""
-	if delayMs != "" {
-		q += "delayMs=" + delayMs
-	}
-	if fail == "true" {
-		if q != "" { q += "&" }
-		q += "fail=true"
-	}
-	if q != "" {
-		url += "?" + q
+func (c *Client) GetProfileByUsername(ctx context.Context, username, usersDelayMs, usersFail, profileDelayMs, profileFail string) (int, string, []byte, error) {
+	base := strings.TrimRight(c.baseURL, "/")
+	rawURL := fmt.Sprintf("%s/%s", base, url.PathEscape(username))
+
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return 0, "", nil, fmt.Errorf("invalid profile-service url: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	q := u.Query()
+	if usersDelayMs != "" {
+		q.Set("usersDelayMs", usersDelayMs)
+	}
+	if usersFail == "true" {
+		q.Set("usersFail", "true")
+	}
+	if profileDelayMs != "" {
+		q.Set("delayMs", profileDelayMs)
+	}
+	if profileFail == "true" {
+		q.Set("fail", "true")
+	}
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return 0, "", nil, err
 	}
@@ -42,8 +53,12 @@ func (c *Client) GetProfileByUUID(ctx context.Context, uuid, delayMs, fail strin
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
-	ct := resp.Header.Get("Content-Type")
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, "", nil, fmt.Errorf("failed to read profile-service response body: %w", err)
+	}
 
-	return resp.StatusCode, ct, body, nil
+	contentType := resp.Header.Get("Content-Type")
+
+	return resp.StatusCode, contentType, body, nil
 }
