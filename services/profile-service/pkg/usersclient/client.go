@@ -26,7 +26,7 @@ type lookupResponse struct {
 
 func (c *Client) GetUUIDByUsername(ctx context.Context, username, delayMs, fail string) (uuid string, ok bool, err error) {
 	base := strings.TrimRight(c.baseURL, "/")
-	rawURL := fmt.Sprintf("%s/%s", base, username)
+	rawURL := fmt.Sprintf("%s/%s", base, url.PathEscape(username))
 
 	u, err := url.Parse(rawURL)
 	if err != nil {
@@ -76,39 +76,4 @@ func (c *Client) GetUUIDByUsername(ctx context.Context, username, delayMs, fail 
 	}
 
 	return lr.UUID, true, nil
-}
-
-func (c *Client) GetProfileByUsername(ctx context.Context, username, delayMs, fail string) (int, string, []byte, error) {
-	base := strings.TrimRight(c.baseURL, "/")
-	rawURL := fmt.Sprintf("%s/%s/profile", base, username)
-
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return 0, "", nil, fmt.Errorf("invalid url: %w", err)
-	}
-
-	q := u.Query()
-	if delayMs != "" {
-		q.Set("delayMs", delayMs)
-	}
-	if fail == "true" {
-		q.Set("fail", "true")
-	}
-	u.RawQuery = q.Encode()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return 0, "", nil, err
-	}
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return 0, "", nil, fmt.Errorf("users-service profile request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-	ct := resp.Header.Get("Content-Type")
-
-	return resp.StatusCode, ct, body, nil
 }
