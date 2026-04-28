@@ -2,6 +2,11 @@ package controller
 
 import (
 	"net/http"
+	"log"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 
 	"profile-service/service"
 
@@ -46,24 +51,41 @@ func (c *ProfileController) GetProfile(ctx *gin.Context) {
 }
 
 func (c *ProfileController) GetProfileByUsername(ctx *gin.Context) {
-	username := ctx.Param("username")
+    username := ctx.Param("username")
 
-	// allow experiment pass-through to users-service from profile-service
-	usersDelayMs := ctx.Query("usersDelayMs")
-	usersFail := ctx.Query("usersFail")
+    tr := otel.Tracer("profile-service")
+    reqCtx, span := tr.Start(ctx.Request.Context(), "ProfileController.GetProfileByUsername")
+    span.SetAttributes(attribute.String("app.username", username))
+    defer span.End()
 
-	p, ok, err := c.svc.GetProfileByUsername(ctx.Request.Context(), username, usersDelayMs, usersFail)
-	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{"error": "profile-service failed"})
-		return
-	}
-	if !ok {
-		ctx.JSON(http.StatusNotFound, gin.H{
-			"error":    "no profile found for user",
-			"username": username,
-		})
-		return
-	}
+    if username == "" {
+        log.Printf("missing username path parameter")
+        span.SetStatus(codes.Error, "missing username")
+        ctx.JSON(http.StatusBadRequest, gin.H{"error": "username is required"})
+        return
+    }
 
-	ctx.JSON(http.StatusOK, p)
+    usersDelayMs := ctx.Query("usersDelayMs")
+    usersFail := ctx.Query("usersFail")
+
+    p, ok, err := c.svc.GetProfileByUsername(reqCtx, username, usersDelayMs, usersFail)
+    if err != nil {
+        log.Printf("GetProfileByUsername failed (username=%s): %v", username, err)
+        span.RecordError(err)
+        span.SetStatus(codes.Error, err.Error())
+        ctx.JSON(http.StatusBadGateway, gin.H{"error": "profile-service failed"})
+        return
+    }
+
+    if !ok {
+        log.Printf("profile not found (username=%s)", username)
+        span.SetStatus(codes.Error, "profile not found")
+        ctx.JSON(http.StatusNotFound, gin.H{
+            "error":    "no profile found for user",
+            "username": username,
+        })
+        return
+    }
+
+    ctx.JSON(http.StatusOK, p)
 }
