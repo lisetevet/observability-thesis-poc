@@ -9,18 +9,18 @@ import (
 
 	"users-api-service/config"
 	"users-api-service/controller"
-	"users-api-service/repository"
-	"users-api-service/service"
-	"users-api-service/router"
 	"users-api-service/middleware"
-	
+	"users-api-service/repository"
+	"users-api-service/router"
+	"users-api-service/service"
+
 	observability "users-observability"
 
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 func main() {
@@ -84,12 +84,12 @@ func main() {
 			ctx,
 			bson.M{"username": username},
 			bson.M{"$set": bson.M{
-				"username":       username,
-				"uuid":           u.UUID,
-				"name":           u.Name,
-				"surname":        u.Surname,
-				"email":          u.Email,
-				"personal_code":  u.PersonalCode,
+				"username":      username,
+				"uuid":          u.UUID,
+				"name":          u.Name,
+				"surname":       u.Surname,
+				"email":         u.Email,
+				"personal_code": u.PersonalCode,
 			}},
 			options.Update().SetUpsert(true),
 		)

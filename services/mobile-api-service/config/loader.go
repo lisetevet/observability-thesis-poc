@@ -8,8 +8,8 @@ import (
 )
 
 type Config struct {
-	Port            int    `yaml:"port"`
-	BasePath        string `yaml:"base_path"`
+	Port              int    `yaml:"port"`
+	BasePath          string `yaml:"base_path"`
 	ProfileServiceURL string `yaml:"profile_service_url"`
 }
 
