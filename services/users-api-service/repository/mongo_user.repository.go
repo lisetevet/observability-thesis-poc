@@ -37,6 +37,7 @@ func (r *MongoUserRepository) GetUUIDByUsername(ctx context.Context, username st
 	}
 
 	if errors.Is(err, mongo.ErrNoDocuments) {
+		log.Printf("no user document found for username=%s", username)
 		span.SetAttributes(attribute.Bool("db.found", false))
 		return "", false, nil
 	}
@@ -62,6 +63,7 @@ func (r *MongoUserRepository) GetUserByUsername(ctx context.Context, username st
 	}
 
 	if errors.Is(err, mongo.ErrNoDocuments) {
+		log.Printf("no user document found for username=%s", username)
 		span.SetAttributes(attribute.Bool("db.found", false))
 		return model.User{}, false, nil
 	}
