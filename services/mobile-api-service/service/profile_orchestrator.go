@@ -7,6 +7,7 @@ import (
 	"net/url"
 
 	"mobile-api-service/client/profileclient"
+	"mobile-api-service/model"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -21,37 +22,26 @@ func NewOrchestrator(profile *profileclient.Client) *Orchestrator {
 	return &Orchestrator{profile: profile}
 }
 
-func (o *Orchestrator) FetchProfileByUsername(ctx context.Context, username, usersDelayMs, usersFail, profileDelayMs, profileFail string) (int, string, []byte, error) {
+func (o *Orchestrator) FetchProfileByUsername(
+	ctx context.Context,
+	username string,
+	query model.ProfileLookupQuery,
+) (int, string, []byte, error) {
 	tr := otel.Tracer("mobile-api-service")
 	ctx, span := tr.Start(ctx, "Orchestrator.FetchProfileByUsername")
 	span.SetAttributes(
 		attribute.String("app.username", username),
-		attribute.String("test.usersDelayMs", usersDelayMs),
-		attribute.String("test.usersFail", usersFail),
-		attribute.String("test.profileDelayMs", profileDelayMs),
-		attribute.String("test.profileFail", profileFail),
+		attribute.String("test.usersDelayMs", query.UsersDelayMs),
+		attribute.String("test.usersFail", query.UsersFail),
+		attribute.String("test.profileDelayMs", query.ProfileDelayMs),
+		attribute.String("test.profileFail", query.ProfileFail),
 	)
 	defer span.End()
-
-	query := url.Values{}
-
-	if usersDelayMs != "" {
-		query.Set("usersDelayMs", usersDelayMs)
-	}
-	if usersFail == "true" {
-		query.Set("usersFail", "true")
-	}
-	if profileDelayMs != "" {
-		query.Set("delayMs", profileDelayMs)
-	}
-	if profileFail == "true" {
-		query.Set("fail", "true")
-	}
 
 	status, contentType, body, err := o.profile.Get(
 		ctx,
 		url.PathEscape(username),
-		query,
+		query.ToProfileServiceQuery(),
 	)
 	span.SetAttributes(attribute.Int("downstream.profile.status", status))
 

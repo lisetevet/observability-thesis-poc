@@ -8,6 +8,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 
+	"profile-service/model"
 	"profile-service/service"
 
 	"github.com/gin-gonic/gin"
@@ -73,10 +74,13 @@ func (c *ProfileController) GetProfileByUsername(ctx *gin.Context) {
 		return
 	}
 
-	usersDelayMs := ctx.Query("usersDelayMs")
-	usersFail := ctx.Query("usersFail")
+	query := model.UsersLookupQuery{
+		DelayMs: ctx.Query("usersDelayMs"),
+		Fail:    ctx.Query("usersFail"),
+	}
+	query.SetDefaults()
 
-	p, ok, err := c.svc.GetProfileByUsername(reqCtx, username, usersDelayMs, usersFail)
+	p, ok, err := c.svc.GetProfileByUsername(reqCtx, username, query)
 	if err != nil {
 		log.Printf("GetProfileByUsername failed (username=%s): %v", username, err)
 		span.RecordError(err)

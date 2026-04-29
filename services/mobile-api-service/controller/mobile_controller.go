@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	"mobile-api-service/model"
 	"mobile-api-service/service"
 
 	"github.com/gin-gonic/gin"
@@ -34,17 +35,18 @@ func (c *MobileController) GetProfile(ctx *gin.Context) {
 	username := ctx.Param("username")
 	span.SetAttributes(attribute.String("app.username", username))
 
-	// pass-through injection params for experiments
-	usersDelayMs := ctx.Query("usersDelayMs")
-	usersFail := ctx.Query("usersFail")
-	profileDelayMs := ctx.Query("profileDelayMs")
-	profileFail := ctx.Query("profileFail")
+	query := model.ProfileLookupQuery{
+		UsersDelayMs:   ctx.Query("usersDelayMs"),
+		UsersFail:      ctx.Query("usersFail"),
+		ProfileDelayMs: ctx.Query("profileDelayMs"),
+		ProfileFail:    ctx.Query("profileFail"),
+	}
+	query.SetDefaults()
 
 	status, contentType, body, err := c.orch.FetchProfileByUsername(
 		reqCtx,
 		username,
-		usersDelayMs, usersFail,
-		profileDelayMs, profileFail,
+		query,
 	)
 	if err != nil {
 		log.Printf("GetProfile failed (username=%s): %v", username, err)

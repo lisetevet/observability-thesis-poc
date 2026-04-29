@@ -40,21 +40,17 @@ func (s *ProfileService) GetProfile(ctx context.Context, uuid string) (model.Pro
 	return s.repo.GetByUUID(ctx, uuid)
 }
 
-func (s *ProfileService) GetProfileByUsername(ctx context.Context, username, usersDelayMs, usersFail string) (model.Profile, bool, error) {
+func (s *ProfileService) GetProfileByUsername(
+	ctx context.Context,
+	username string,
+	query model.UsersLookupQuery,
+) (model.Profile, bool, error) {
 	tr := otel.Tracer("profile-service")
 	ctx, span := tr.Start(ctx, "ProfileService.GetProfileByUsername")
 	span.SetAttributes(attribute.String("app.username", username))
 	defer span.End()
 
-	query := url.Values{}
-	if usersDelayMs != "" {
-		query.Set("delayMs", usersDelayMs)
-	}
-	if usersFail == "true" {
-		query.Set("fail", "true")
-	}
-
-	status, _, body, err := s.usersCl.Get(ctx, url.PathEscape(username), query)
+	status, _, body, err := s.usersCl.Get(ctx, url.PathEscape(username), query.ToUsersServiceQuery())
 	if err != nil {
 		log.Printf("failed to call users-service (username=%s): %v", username, err)
 		span.RecordError(err)
