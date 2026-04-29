@@ -18,7 +18,11 @@ func New(httpClient *http.Client, baseURL string) *Client {
 	return &Client{httpClient: httpClient, baseURL: baseURL}
 }
 
-func (c *Client) Get(ctx context.Context, path string, query url.Values) (int, string, []byte, error) {
+func (c *Client) Get(
+	ctx context.Context,
+	path string,
+	query url.Values,
+) (statusCode int, contentType string, responseBody []byte, err error) {
 	base := strings.TrimRight(c.baseURL, "/")
 	cleanPath := "/" + strings.TrimLeft(path, "/")
 
@@ -45,6 +49,6 @@ func (c *Client) Get(ctx context.Context, path string, query url.Values) (int, s
 		return 0, "", nil, fmt.Errorf("failed to read users-service response body: %w", err)
 	}
 
-	contentType := resp.Header.Get("Content-Type")
+	contentType = resp.Header.Get("Content-Type")
 	return resp.StatusCode, contentType, body, nil
 }
