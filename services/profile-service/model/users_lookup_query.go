@@ -3,8 +3,8 @@ package model
 import "net/url"
 
 type UsersLookupQuery struct {
-	DelayMs string
-	Fail    string
+	DelayMs string `form:"usersDelayMs"`
+	Fail    string `form:"usersFail"`
 }
 
 func (q *UsersLookupQuery) SetDefaults() {

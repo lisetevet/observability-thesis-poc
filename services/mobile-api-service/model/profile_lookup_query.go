@@ -3,10 +3,10 @@ package model
 import "net/url"
 
 type ProfileLookupQuery struct {
-	UsersDelayMs   string
-	UsersFail      string
-	ProfileDelayMs string
-	ProfileFail    string
+	UsersDelayMs   string `form:"usersDelayMs"`
+	UsersFail      string `form:"usersFail"`
+	ProfileDelayMs string `form:"profileDelayMs"`
+	ProfileFail    string `form:"profileFail"`
 }
 
 func (q *ProfileLookupQuery) SetDefaults() {

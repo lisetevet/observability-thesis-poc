@@ -35,11 +35,13 @@ func (c *MobileController) GetProfile(ctx *gin.Context) {
 	username := ctx.Param("username")
 	span.SetAttributes(attribute.String("app.username", username))
 
-	query := model.ProfileLookupQuery{
-		UsersDelayMs:   ctx.Query("usersDelayMs"),
-		UsersFail:      ctx.Query("usersFail"),
-		ProfileDelayMs: ctx.Query("profileDelayMs"),
-		ProfileFail:    ctx.Query("profileFail"),
+	var query model.ProfileLookupQuery
+	if err := ctx.ShouldBindQuery(&query); err != nil {
+		log.Printf("invalid profile lookup query parameters (username=%s): %v", username, err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "invalid query parameters")
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
 	query.SetDefaults()
 

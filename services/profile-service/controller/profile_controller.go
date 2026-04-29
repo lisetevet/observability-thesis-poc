@@ -74,9 +74,13 @@ func (c *ProfileController) GetProfileByUsername(ctx *gin.Context) {
 		return
 	}
 
-	query := model.UsersLookupQuery{
-		DelayMs: ctx.Query("usersDelayMs"),
-		Fail:    ctx.Query("usersFail"),
+	var query model.UsersLookupQuery
+	if err := ctx.ShouldBindQuery(&query); err != nil {
+		log.Printf("invalid users lookup query parameters (username=%s): %v", username, err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "invalid query parameters")
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
 	query.SetDefaults()
 
