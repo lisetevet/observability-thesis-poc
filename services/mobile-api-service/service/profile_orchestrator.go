@@ -1,11 +1,11 @@
 package service
 
 import (
-	"net/http"
 	"context"
+	"fmt"
+	"log"
 
-	"mobile-api-service/pkg/profileclient"
-	"mobile-api-service/pkg/usersclient"
+	"mobile-api-service/client/profileclient"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -13,12 +13,11 @@ import (
 )
 
 type Orchestrator struct {
-	users   *usersclient.Client
 	profile *profileclient.Client
 }
 
-func NewOrchestrator(users *usersclient.Client, profile *profileclient.Client) *Orchestrator {
-	return &Orchestrator{users: users, profile: profile}
+func NewOrchestrator(profile *profileclient.Client) *Orchestrator {
+	return &Orchestrator{profile: profile}
 }
 
 func (o *Orchestrator) FetchProfileByUsername(ctx context.Context, username, usersDelayMs, usersFail, profileDelayMs, profileFail string) (int, string, []byte, error) {
@@ -32,34 +31,28 @@ func (o *Orchestrator) FetchProfileByUsername(ctx context.Context, username, use
 		attribute.String("test.profileFail", profileFail),
 	)
 	defer span.End()
-	
-	// 1) users lookup
-	status, ct, body, uuid, err := o.users.GetUUIDByUsername(ctx, username, usersDelayMs, usersFail)
-	span.SetAttributes(attribute.Int("downstream.users.status", status))
+
+	status, contentType, body, err := o.profile.GetProfileByUsername(
+		ctx,
+		username,
+		usersDelayMs,
+		usersFail,
+		profileDelayMs,
+		profileFail,
+	)
+	span.SetAttributes(attribute.Int("downstream.profile.status", status))
 
 	if err != nil {
+		log.Printf("profile-service lookup failed (username=%s): %v", username, err)
 		span.RecordError(err)
-		span.SetStatus(codes.Error, "users lookup failed")
+		span.SetStatus(codes.Error, err.Error())
 		return 0, "", nil, err
 	}
-	if status != http.StatusOK {
-		// downstream tagastab error body -> pass-through
-		span.SetStatus(codes.Error, "users returned non-200")
-		return status, ct, body, nil
+
+	if status >= 400 {
+		log.Printf("profile-service returned non-success status (username=%s status=%d)", username, status)
+		span.SetStatus(codes.Error, fmt.Sprintf("profile-service returned %d", status))
 	}
 
-	// 2) profile lookup
-	pStatus, pCT, pBody, err := o.profile.GetProfileByUUID(ctx, uuid, profileDelayMs, profileFail)
-	span.SetAttributes(attribute.Int("downstream.profile.status", pStatus))
-
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, "profile lookup failed")
-		return 0, "", nil, err
-	}
-	if pStatus != http.StatusOK {
-		span.SetStatus(codes.Error, "profile returned non-200")
-	}
-
-	return pStatus, pCT, pBody, nil
+	return status, contentType, body, nil
 }

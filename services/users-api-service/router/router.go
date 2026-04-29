@@ -23,5 +23,4 @@ func (r *Router) Engine() *gin.Engine {
 func (r *Router) Setup(ctrl *controller.UsersController, basePath string) {
 	r.engine.GET("/health", ctrl.Health)
 	r.engine.GET(basePath+"/:username", ctrl.GetUserUUID)
-	r.engine.GET(basePath+"/:username/profile", ctrl.GetUserProfileSeed)
 }

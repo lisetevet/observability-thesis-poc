@@ -1,4 +1,3 @@
 port: 8082
 base_path: /api/v1
-users_service_url: http://users-api-service:8081/api/v1/users
-profile_service_url: http://profile-service:8080/api/v1/profiles
+profile_service_url: http://profile-service:8080/api/v1/profile

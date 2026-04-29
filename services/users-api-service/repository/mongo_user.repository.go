@@ -37,6 +37,7 @@ func (r *MongoUserRepository) GetUUIDByUsername(ctx context.Context, username st
 	}
 
 	if errors.Is(err, mongo.ErrNoDocuments) {
+		log.Printf("no user document found for username=%s", username)
 		span.SetAttributes(attribute.Bool("db.found", false))
 		return "", false, nil
 	}
@@ -45,29 +46,4 @@ func (r *MongoUserRepository) GetUUIDByUsername(ctx context.Context, username st
 	span.SetStatus(codes.Error, "mongo find failed")
 	log.Printf("mongo GetUUIDByUsername failed (username=%s): %v", username, err)
 	return "", false, err
-}
-
-func (r *MongoUserRepository) GetUserByUsername(ctx context.Context, username string) (model.User, bool, error) {
-	tr := otel.Tracer("users-api-service")
-	ctx, span := tr.Start(ctx, "MongoUserRepository.GetUserByUsername")
-	span.SetAttributes(attribute.String("app.username", username))
-	defer span.End()
-
-	var doc model.User
-	err := r.coll.FindOne(ctx, bson.M{"username": username}).Decode(&doc)
-
-	if err == nil {
-		span.SetAttributes(attribute.Bool("db.found", true))
-		return doc, true, nil
-	}
-
-	if errors.Is(err, mongo.ErrNoDocuments) {
-		span.SetAttributes(attribute.Bool("db.found", false))
-		return model.User{}, false, nil
-	}
-
-	span.RecordError(err)
-	span.SetStatus(codes.Error, "mongo find failed")
-	log.Printf("mongo GetUserByUsername failed (username=%s): %v", username, err)
-	return model.User{}, false, err
 }
