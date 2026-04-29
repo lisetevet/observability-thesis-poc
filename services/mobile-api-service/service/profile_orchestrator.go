@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/url"
 
 	"mobile-api-service/client/profileclient"
 
@@ -32,13 +33,25 @@ func (o *Orchestrator) FetchProfileByUsername(ctx context.Context, username, use
 	)
 	defer span.End()
 
-	status, contentType, body, err := o.profile.GetProfileByUsername(
+	query := url.Values{}
+
+	if usersDelayMs != "" {
+		query.Set("usersDelayMs", usersDelayMs)
+	}
+	if usersFail == "true" {
+		query.Set("usersFail", "true")
+	}
+	if profileDelayMs != "" {
+		query.Set("delayMs", profileDelayMs)
+	}
+	if profileFail == "true" {
+		query.Set("fail", "true")
+	}
+
+	status, contentType, body, err := o.profile.Get(
 		ctx,
-		username,
-		usersDelayMs,
-		usersFail,
-		profileDelayMs,
-		profileFail,
+		url.PathEscape(username),
+		query,
 	)
 	span.SetAttributes(attribute.Int("downstream.profile.status", status))
 

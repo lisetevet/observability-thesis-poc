@@ -2,7 +2,6 @@ package usersclient
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,61 +18,33 @@ func New(httpClient *http.Client, baseURL string) *Client {
 	return &Client{httpClient: httpClient, baseURL: baseURL}
 }
 
-type lookupResponse struct {
-	Username string `json:"username"`
-	UUID     string `json:"uuid"`
-}
-
-func (c *Client) GetUUIDByUsername(ctx context.Context, username, delayMs, fail string) (uuid string, ok bool, err error) {
+func (c *Client) Get(ctx context.Context, path string, query url.Values) (int, string, []byte, error) {
 	base := strings.TrimRight(c.baseURL, "/")
-	rawURL := fmt.Sprintf("%s/%s", base, url.PathEscape(username))
+	cleanPath := "/" + strings.TrimLeft(path, "/")
 
-	u, err := url.Parse(rawURL)
+	u, err := url.Parse(base + cleanPath)
 	if err != nil {
-		return "", false, fmt.Errorf("invalid users-service url: %w", err)
+		return 0, "", nil, fmt.Errorf("invalid users-service url: %w", err)
 	}
 
-	q := u.Query()
-	if delayMs != "" {
-		q.Set("delayMs", delayMs)
-	}
-	if fail == "true" {
-		q.Set("fail", "true")
-	}
-	u.RawQuery = q.Encode()
+	u.RawQuery = query.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
-		return "", false, err
+		return 0, "", nil, err
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", false, fmt.Errorf("users-service request failed: %w", err)
+		return 0, "", nil, fmt.Errorf("users-service request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", false, fmt.Errorf("failed to read users-service response body: %w", err)
+		return 0, "", nil, fmt.Errorf("failed to read users-service response body: %w", err)
 	}
 
-	if resp.StatusCode == http.StatusNotFound {
-		return "", false, nil
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return "", false, fmt.Errorf("users-service returned %d: %s", resp.StatusCode, string(body))
-	}
-
-	var lr lookupResponse
-	if err := json.Unmarshal(body, &lr); err != nil {
-		return "", false, fmt.Errorf("invalid users-service response: %s", string(body))
-	}
-
-	if lr.UUID == "" {
-		return "", false, fmt.Errorf("users-service response did not contain uuid: %s", string(body))
-	}
-
-	return lr.UUID, true, nil
+	contentType := resp.Header.Get("Content-Type")
+	return resp.StatusCode, contentType, body, nil
 }
