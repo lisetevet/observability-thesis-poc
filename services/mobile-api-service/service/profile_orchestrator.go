@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/url"
@@ -9,6 +8,7 @@ import (
 	"mobile-api-service/client/profileclient"
 	"mobile-api-service/model"
 
+	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -23,12 +23,13 @@ func NewOrchestrator(profile *profileclient.Client) *Orchestrator {
 }
 
 func (o *Orchestrator) FetchProfileByUsername(
-	ctx context.Context,
+	ctx *gin.Context,
 	username string,
 	query model.ProfileLookupQuery,
 ) (int, string, []byte, error) {
 	tr := otel.Tracer("mobile-api-service")
-	ctx, span := tr.Start(ctx, "Orchestrator.FetchProfileByUsername")
+	reqCtx, span := tr.Start(ctx.Request.Context(), "Orchestrator.FetchProfileByUsername")
+	ctx.Request = ctx.Request.WithContext(reqCtx)
 	span.SetAttributes(
 		attribute.String("app.username", username),
 		attribute.String("test.usersDelayMs", query.UsersDelayMs),

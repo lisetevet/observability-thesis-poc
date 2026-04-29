@@ -12,6 +12,7 @@ import (
 	"profile-service/model"
 	"profile-service/repository"
 
+	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -41,12 +42,13 @@ func (s *ProfileService) GetProfile(ctx context.Context, uuid string) (model.Pro
 }
 
 func (s *ProfileService) GetProfileByUsername(
-	ctx context.Context,
+	ctx *gin.Context,
 	username string,
 	query model.UsersLookupQuery,
 ) (model.Profile, bool, error) {
 	tr := otel.Tracer("profile-service")
-	ctx, span := tr.Start(ctx, "ProfileService.GetProfileByUsername")
+	reqCtx, span := tr.Start(ctx.Request.Context(), "ProfileService.GetProfileByUsername")
+	ctx.Request = ctx.Request.WithContext(reqCtx)
 	span.SetAttributes(attribute.String("app.username", username))
 	defer span.End()
 
@@ -98,7 +100,7 @@ func (s *ProfileService) GetProfileByUsername(
 		attribute.String("app.uuid", uuid),
 	)
 
-	profile, found, err := s.repo.GetByUUID(ctx, uuid)
+	profile, found, err := s.repo.GetByUUID(reqCtx, uuid)
 	if err != nil {
 		log.Printf("failed to fetch profile by uuid (username=%s uuid=%s): %v", username, uuid, err)
 		span.RecordError(err)

@@ -31,6 +31,7 @@ func (c *ProfileController) GetProfile(ctx *gin.Context) {
 
 	tr := otel.Tracer("profile-service")
 	reqCtx, span := tr.Start(ctx.Request.Context(), "ProfileController.GetProfile")
+	ctx.Request = ctx.Request.WithContext(reqCtx)
 	span.SetAttributes(attribute.String("app.uuid", uuid))
 	defer span.End()
 
@@ -64,6 +65,7 @@ func (c *ProfileController) GetProfileByUsername(ctx *gin.Context) {
 
 	tr := otel.Tracer("profile-service")
 	reqCtx, span := tr.Start(ctx.Request.Context(), "ProfileController.GetProfileByUsername")
+	ctx.Request = ctx.Request.WithContext(reqCtx)
 	span.SetAttributes(attribute.String("app.username", username))
 	defer span.End()
 
@@ -84,7 +86,7 @@ func (c *ProfileController) GetProfileByUsername(ctx *gin.Context) {
 	}
 	query.SetDefaults()
 
-	p, ok, err := c.svc.GetProfileByUsername(reqCtx, username, query)
+	p, ok, err := c.svc.GetProfileByUsername(ctx, username, query)
 	if err != nil {
 		log.Printf("GetProfileByUsername failed (username=%s): %v", username, err)
 		span.RecordError(err)

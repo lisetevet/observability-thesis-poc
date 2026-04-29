@@ -30,6 +30,7 @@ func (c *MobileController) GetProfile(ctx *gin.Context) {
 
 	tr := otel.Tracer("mobile-api-service")
 	reqCtx, span := tr.Start(reqCtx, "MobileController.GetProfile")
+	ctx.Request = ctx.Request.WithContext(reqCtx)
 	defer span.End()
 
 	username := ctx.Param("username")
@@ -46,7 +47,7 @@ func (c *MobileController) GetProfile(ctx *gin.Context) {
 	query.SetDefaults()
 
 	status, contentType, body, err := c.orch.FetchProfileByUsername(
-		reqCtx,
+		ctx,
 		username,
 		query,
 	)

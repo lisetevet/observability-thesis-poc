@@ -1,12 +1,13 @@
 package usersclient
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Client struct {
@@ -19,7 +20,7 @@ func New(httpClient *http.Client, baseURL string) *Client {
 }
 
 func (c *Client) Get(
-	ctx context.Context,
+	ctx *gin.Context,
 	path string,
 	query url.Values,
 ) (statusCode int, contentType string, responseBody []byte, err error) {
@@ -33,7 +34,7 @@ func (c *Client) Get(
 
 	u.RawQuery = query.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	req, err := http.NewRequestWithContext(ctx.Request.Context(), http.MethodGet, u.String(), nil)
 	if err != nil {
 		return 0, "", nil, err
 	}
