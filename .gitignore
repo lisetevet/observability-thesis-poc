@@ -1,6 +1,5 @@
 # Local environment overrides (not committed)
 .env
-results/
 
 .DS_Store
 **/.DS_Store
