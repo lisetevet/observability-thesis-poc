@@ -1,12 +1,13 @@
 package profileclient
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Client struct {
@@ -18,31 +19,22 @@ func New(httpClient *http.Client, baseURL string) *Client {
 	return &Client{httpClient: httpClient, baseURL: baseURL}
 }
 
-func (c *Client) GetProfileByUsername(ctx context.Context, username, usersDelayMs, usersFail, profileDelayMs, profileFail string) (int, string, []byte, error) {
+func (c *Client) Get(
+	ctx *gin.Context,
+	path string,
+	query url.Values,
+) (statusCode int, contentType string, responseBody []byte, err error) {
 	base := strings.TrimRight(c.baseURL, "/")
-	rawURL := fmt.Sprintf("%s/%s", base, url.PathEscape(username))
+	cleanPath := "/" + strings.TrimLeft(path, "/")
 
-	u, err := url.Parse(rawURL)
+	u, err := url.Parse(base + cleanPath)
 	if err != nil {
 		return 0, "", nil, fmt.Errorf("invalid profile-service url: %w", err)
 	}
 
-	q := u.Query()
-	if usersDelayMs != "" {
-		q.Set("usersDelayMs", usersDelayMs)
-	}
-	if usersFail == "true" {
-		q.Set("usersFail", "true")
-	}
-	if profileDelayMs != "" {
-		q.Set("delayMs", profileDelayMs)
-	}
-	if profileFail == "true" {
-		q.Set("fail", "true")
-	}
-	u.RawQuery = q.Encode()
+	u.RawQuery = query.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	req, err := http.NewRequestWithContext(ctx.Request.Context(), http.MethodGet, u.String(), nil)
 	if err != nil {
 		return 0, "", nil, err
 	}
@@ -58,7 +50,6 @@ func (c *Client) GetProfileByUsername(ctx context.Context, username, usersDelayM
 		return 0, "", nil, fmt.Errorf("failed to read profile-service response body: %w", err)
 	}
 
-	contentType := resp.Header.Get("Content-Type")
-
+	contentType = resp.Header.Get("Content-Type")
 	return resp.StatusCode, contentType, body, nil
 }

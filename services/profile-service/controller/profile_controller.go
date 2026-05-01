@@ -8,6 +8,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 
+	"profile-service/model"
 	"profile-service/service"
 
 	"github.com/gin-gonic/gin"
@@ -30,6 +31,7 @@ func (c *ProfileController) GetProfile(ctx *gin.Context) {
 
 	tr := otel.Tracer("profile-service")
 	reqCtx, span := tr.Start(ctx.Request.Context(), "ProfileController.GetProfile")
+	ctx.Request = ctx.Request.WithContext(reqCtx)
 	span.SetAttributes(attribute.String("app.uuid", uuid))
 	defer span.End()
 
@@ -63,6 +65,7 @@ func (c *ProfileController) GetProfileByUsername(ctx *gin.Context) {
 
 	tr := otel.Tracer("profile-service")
 	reqCtx, span := tr.Start(ctx.Request.Context(), "ProfileController.GetProfileByUsername")
+	ctx.Request = ctx.Request.WithContext(reqCtx)
 	span.SetAttributes(attribute.String("app.username", username))
 	defer span.End()
 
@@ -73,10 +76,17 @@ func (c *ProfileController) GetProfileByUsername(ctx *gin.Context) {
 		return
 	}
 
-	usersDelayMs := ctx.Query("usersDelayMs")
-	usersFail := ctx.Query("usersFail")
+	var query model.UsersLookupQuery
+	if err := ctx.ShouldBindQuery(&query); err != nil {
+		log.Printf("invalid users lookup query parameters (username=%s): %v", username, err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "invalid query parameters")
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	query.SetDefaults()
 
-	p, ok, err := c.svc.GetProfileByUsername(reqCtx, username, usersDelayMs, usersFail)
+	p, ok, err := c.svc.GetProfileByUsername(ctx, username, query)
 	if err != nil {
 		log.Printf("GetProfileByUsername failed (username=%s): %v", username, err)
 		span.RecordError(err)

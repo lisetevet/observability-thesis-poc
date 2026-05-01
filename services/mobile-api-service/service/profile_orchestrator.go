@@ -1,12 +1,14 @@
 package service
 
 import (
-	"context"
 	"fmt"
 	"log"
+	"net/url"
 
 	"mobile-api-service/client/profileclient"
+	"mobile-api-service/model"
 
+	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -20,25 +22,27 @@ func NewOrchestrator(profile *profileclient.Client) *Orchestrator {
 	return &Orchestrator{profile: profile}
 }
 
-func (o *Orchestrator) FetchProfileByUsername(ctx context.Context, username, usersDelayMs, usersFail, profileDelayMs, profileFail string) (int, string, []byte, error) {
+func (o *Orchestrator) FetchProfileByUsername(
+	ctx *gin.Context,
+	username string,
+	query model.ProfileLookupQuery,
+) (int, string, []byte, error) {
 	tr := otel.Tracer("mobile-api-service")
-	ctx, span := tr.Start(ctx, "Orchestrator.FetchProfileByUsername")
+	reqCtx, span := tr.Start(ctx.Request.Context(), "Orchestrator.FetchProfileByUsername")
+	ctx.Request = ctx.Request.WithContext(reqCtx)
 	span.SetAttributes(
 		attribute.String("app.username", username),
-		attribute.String("test.usersDelayMs", usersDelayMs),
-		attribute.String("test.usersFail", usersFail),
-		attribute.String("test.profileDelayMs", profileDelayMs),
-		attribute.String("test.profileFail", profileFail),
+		attribute.String("test.usersDelayMs", query.UsersDelayMs),
+		attribute.String("test.usersFail", query.UsersFail),
+		attribute.String("test.profileDelayMs", query.ProfileDelayMs),
+		attribute.String("test.profileFail", query.ProfileFail),
 	)
 	defer span.End()
 
-	status, contentType, body, err := o.profile.GetProfileByUsername(
+	status, contentType, body, err := o.profile.Get(
 		ctx,
-		username,
-		usersDelayMs,
-		usersFail,
-		profileDelayMs,
-		profileFail,
+		url.PathEscape(username),
+		query.ToProfileServiceQuery(),
 	)
 	span.SetAttributes(attribute.Int("downstream.profile.status", status))
 

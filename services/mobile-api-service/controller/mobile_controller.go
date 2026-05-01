@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	"mobile-api-service/model"
 	"mobile-api-service/service"
 
 	"github.com/gin-gonic/gin"
@@ -29,22 +30,26 @@ func (c *MobileController) GetProfile(ctx *gin.Context) {
 
 	tr := otel.Tracer("mobile-api-service")
 	reqCtx, span := tr.Start(reqCtx, "MobileController.GetProfile")
+	ctx.Request = ctx.Request.WithContext(reqCtx)
 	defer span.End()
 
 	username := ctx.Param("username")
 	span.SetAttributes(attribute.String("app.username", username))
 
-	// pass-through injection params for experiments
-	usersDelayMs := ctx.Query("usersDelayMs")
-	usersFail := ctx.Query("usersFail")
-	profileDelayMs := ctx.Query("profileDelayMs")
-	profileFail := ctx.Query("profileFail")
+	var query model.ProfileLookupQuery
+	if err := ctx.ShouldBindQuery(&query); err != nil {
+		log.Printf("invalid profile lookup query parameters (username=%s): %v", username, err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "invalid query parameters")
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	query.SetDefaults()
 
 	status, contentType, body, err := c.orch.FetchProfileByUsername(
-		reqCtx,
+		ctx,
 		username,
-		usersDelayMs, usersFail,
-		profileDelayMs, profileFail,
+		query,
 	)
 	if err != nil {
 		log.Printf("GetProfile failed (username=%s): %v", username, err)

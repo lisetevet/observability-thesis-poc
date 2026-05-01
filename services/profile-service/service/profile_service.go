@@ -2,12 +2,17 @@ package service
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
+	"net/http"
+	"net/url"
 
 	"profile-service/client/usersclient"
 	"profile-service/model"
 	"profile-service/repository"
 
+	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -16,6 +21,11 @@ import (
 type ProfileService struct {
 	repo    repository.ProfileRepository
 	usersCl *usersclient.Client
+}
+
+type userUUIDResponse struct {
+	Username string `json:"username"`
+	UUID     string `json:"uuid"`
 }
 
 func NewProfileService(repo repository.ProfileRepository, usersCl *usersclient.Client) *ProfileService {
@@ -31,32 +41,66 @@ func (s *ProfileService) GetProfile(ctx context.Context, uuid string) (model.Pro
 	return s.repo.GetByUUID(ctx, uuid)
 }
 
-func (s *ProfileService) GetProfileByUsername(ctx context.Context, username, usersDelayMs, usersFail string) (model.Profile, bool, error) {
+func (s *ProfileService) GetProfileByUsername(
+	ctx *gin.Context,
+	username string,
+	query model.UsersLookupQuery,
+) (model.Profile, bool, error) {
 	tr := otel.Tracer("profile-service")
-	ctx, span := tr.Start(ctx, "ProfileService.GetProfileByUsername")
+	reqCtx, span := tr.Start(ctx.Request.Context(), "ProfileService.GetProfileByUsername")
+	ctx.Request = ctx.Request.WithContext(reqCtx)
 	span.SetAttributes(attribute.String("app.username", username))
 	defer span.End()
 
-	uuid, ok, err := s.usersCl.GetUUIDByUsername(ctx, username, usersDelayMs, usersFail)
+	status, _, body, err := s.usersCl.Get(ctx, url.PathEscape(username), query.ToUsersServiceQuery())
 	if err != nil {
+		log.Printf("failed to call users-service (username=%s): %v", username, err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return model.Profile{}, false, err
+	}
+
+	span.SetAttributes(attribute.Int("downstream.users.status", status))
+
+	if status == http.StatusNotFound {
+		log.Printf("user not found in users-service (username=%s)", username)
+		span.SetAttributes(attribute.Bool("users.found", false))
+		return model.Profile{}, false, nil
+	}
+
+	if status != http.StatusOK {
+		err := fmt.Errorf("users-service returned %d: %s", status, string(body))
 		log.Printf("failed to resolve uuid from users-service (username=%s): %v", username, err)
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		return model.Profile{}, false, err
 	}
 
-	if !ok {
-		log.Printf("user not found in users-service (username=%s)", username)
-		span.SetAttributes(attribute.Bool("users.found", false))
-		return model.Profile{}, false, nil
+	var userResp userUUIDResponse
+	if err := json.Unmarshal(body, &userResp); err != nil {
+		err = fmt.Errorf("invalid users-service response: %w", err)
+		log.Printf("failed to parse users-service response (username=%s): %v", username, err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return model.Profile{}, false, err
 	}
+
+	if userResp.UUID == "" {
+		err := fmt.Errorf("users-service response did not contain uuid")
+		log.Printf("invalid users-service response (username=%s): %v", username, err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return model.Profile{}, false, err
+	}
+
+	uuid := userResp.UUID
 
 	span.SetAttributes(
 		attribute.Bool("users.found", true),
 		attribute.String("app.uuid", uuid),
 	)
 
-	profile, found, err := s.repo.GetByUUID(ctx, uuid)
+	profile, found, err := s.repo.GetByUUID(reqCtx, uuid)
 	if err != nil {
 		log.Printf("failed to fetch profile by uuid (username=%s uuid=%s): %v", username, uuid, err)
 		span.RecordError(err)
